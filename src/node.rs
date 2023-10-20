@@ -7,7 +7,7 @@ fn get_unique_id() -> u64 {
 }
 
 #[allow(dead_code)]
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Node {
     id: u64,
     voltage: f64,

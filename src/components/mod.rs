@@ -1,5 +1,12 @@
-mod resistor;
-mod voltage_source;
+pub mod resistor;
+pub mod voltage_source;
+
+#[allow(dead_code)]
+#[derive(Debug)]
+pub enum Component {
+    Resistor(resistor::Resistor),
+    VoltageSource(voltage_source::VoltageSource),
+}
 
 #[allow(unused_imports)]
 mod tests {
