@@ -9,9 +9,9 @@ fn get_unique_id() -> u64 {
 #[allow(dead_code)]
 #[derive(Default, Debug)]
 pub struct Node {
-    id: u64,
+    pub id: u64,
     voltage: f64,
-    current: f64,
+    updated: bool,
 }
 
 #[allow(dead_code)]
@@ -23,8 +23,8 @@ impl Node {
         }
     }
 
-    pub fn get_state(&self) -> (f64, f64) {
-        (self.voltage, self.current)
+    pub fn get_state(&self) -> f64 {
+        self.voltage
     }
 }
 

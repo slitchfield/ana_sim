@@ -1,13 +1,8 @@
 pub mod resistor;
 pub mod voltage_source;
+pub mod wire;
 
-use crate::node::Node;
-use std::sync::Weak;
-
-pub trait Component {
-    fn pull_in_state(&mut self);
-    fn get_node_weakref(&self) -> Weak<Node>;
-}
+pub trait Component {}
 
 #[allow(unused_imports)]
 mod tests {
@@ -23,10 +18,9 @@ mod tests {
 
     #[test]
     fn voltage_across_resistor_setup() {
-        let pos_node = Arc::new(Node::new());
-        let gnd_node = Arc::new(Node::new());
-        let _voltage_source =
-            VoltageSource::new(Arc::downgrade(&pos_node), Arc::downgrade(&gnd_node), 12.0);
-        let _resistor = Resistor::new(Arc::downgrade(&pos_node), Arc::downgrade(&gnd_node));
+        let pos_node = Node::new();
+        let gnd_node = Node::new();
+        let _voltage_source = VoltageSource::new(pos_node.id, gnd_node.id, 12.0);
+        let _resistor = Resistor::new(pos_node.id, gnd_node.id);
     }
 }

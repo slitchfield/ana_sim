@@ -1,22 +1,15 @@
-use crate::node::Node;
-use std::sync::Arc;
-use std::sync::Weak;
-
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct VoltageSource {
-    own_node: Arc<Node>,
-    positive_node: Weak<Node>,
-    ground_node: Weak<Node>,
+    positive_node: u64,
+    ground_node: u64,
     voltage: f64,
 }
 
 #[allow(dead_code)]
 impl VoltageSource {
-    pub fn new(positive_node: Weak<Node>, ground_node: Weak<Node>, voltage: f64) -> Self {
-        let own_node = Arc::new(Node::new());
-        VoltageSource {
-            own_node,
+    pub fn new(positive_node: u64, ground_node: u64, voltage: f64) -> Self {
+        Self {
             positive_node,
             ground_node,
             voltage,
@@ -25,27 +18,18 @@ impl VoltageSource {
 }
 
 use crate::components::Component;
-impl Component for VoltageSource {
-    fn get_node_weakref(&self) -> Weak<Node> {
-        Arc::downgrade(&self.own_node)
-    }
-
-    fn pull_in_state(&mut self) {}
-}
+impl Component for VoltageSource {}
 
 #[allow(unused_imports)]
 mod tests {
     use super::*;
+    use crate::node::Node;
     use std::sync::Arc;
 
     #[test]
     fn creation() {
-        let pos_node = Arc::new(Node::new());
-        let gnd_node = Arc::new(Node::new());
-        let _ = VoltageSource::new(
-            Arc::downgrade(&pos_node),
-            Arc::downgrade(&gnd_node),
-            12.0f64,
-        );
+        let pos_node = Node::new();
+        let gnd_node = Node::new();
+        let _ = VoltageSource::new(pos_node.id, gnd_node.id, 12.0f64);
     }
 }
