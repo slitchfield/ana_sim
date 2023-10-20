@@ -12,6 +12,7 @@ pub struct Node {
     pub id: u64,
     voltage: f64,
     updated: bool,
+    is_gnd: bool,
 }
 
 #[allow(dead_code)]
@@ -23,6 +24,9 @@ impl Node {
         }
     }
 
+    pub fn make_ground(&mut self) {
+        self.is_gnd = true;
+    }
     pub fn get_state(&self) -> f64 {
         self.voltage
     }
