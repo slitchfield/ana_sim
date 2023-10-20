@@ -5,7 +5,7 @@ use crate::node::Node;
 use std::sync::Weak;
 
 pub trait Component {
-    fn pull_in_state(&self);
+    fn pull_in_state(&mut self);
     fn get_node_weakref(&self) -> Weak<Node>;
 }
 

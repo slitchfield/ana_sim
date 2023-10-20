@@ -30,7 +30,7 @@ impl Component for VoltageSource {
         Arc::downgrade(&self.own_node)
     }
 
-    fn pull_in_state(&self) {}
+    fn pull_in_state(&mut self) {}
 }
 
 #[allow(unused_imports)]

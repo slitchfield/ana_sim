@@ -11,6 +11,7 @@ fn get_unique_id() -> u64 {
 pub struct Node {
     id: u64,
     voltage: f64,
+    current: f64,
 }
 
 #[allow(dead_code)]
@@ -20,6 +21,10 @@ impl Node {
             id: get_unique_id(),
             ..Default::default()
         }
+    }
+
+    pub fn get_state(&self) -> (f64, f64) {
+        (self.voltage, self.current)
     }
 }
 

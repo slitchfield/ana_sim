@@ -3,11 +3,16 @@ use std::sync::Arc;
 use std::sync::Weak;
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct Resistor {
     own_node: Arc<Node>,
     a_node: Weak<Node>,
     b_node: Weak<Node>,
+
+    a_v: f64,
+    a_c: f64,
+    b_v: f64,
+    b_c: f64,
 }
 
 #[allow(dead_code)]
@@ -18,6 +23,7 @@ impl Resistor {
             own_node,
             a_node,
             b_node,
+            ..Default::default()
         }
     }
 
@@ -32,7 +38,18 @@ impl Component for Resistor {
         Arc::downgrade(&self.own_node)
     }
 
-    fn pull_in_state(&self) {}
+    fn pull_in_state(&mut self) {
+        (self.a_v, self.a_c) = self
+            .a_node
+            .upgrade()
+            .expect("A_node was dropped!")
+            .get_state();
+        (self.b_v, self.b_c) = self
+            .b_node
+            .upgrade()
+            .expect("B_node was dropped!")
+            .get_state();
+    }
 }
 
 #[allow(unused_imports)]
