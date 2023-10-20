@@ -17,11 +17,12 @@ pub struct Node {
 
 #[allow(dead_code)]
 impl Node {
-    pub fn new() -> Self {
-        Node {
+    pub fn new() -> (u64, Self) {
+        let ret = Node {
             id: get_unique_id(),
             ..Default::default()
-        }
+        };
+        (ret.id, ret)
     }
 
     pub fn make_ground(&mut self) {
@@ -38,7 +39,7 @@ mod tests {
 
     #[test]
     fn node_creation() {
-        let result = Node::new();
-        assert!(result.id != 0);
+        let (resid, _resnode) = Node::new();
+        assert!(resid != 0);
     }
 }

@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::HashMap;
 
 use crate::components::Component;
 use crate::node::Node;
@@ -6,7 +6,7 @@ use crate::node::Node;
 #[allow(dead_code)]
 #[derive(Default)]
 pub struct Simulation {
-    node_list: HashSet<Node>,
+    node_list: HashMap<u64, Node>,
     component_list: Vec<Box<dyn Component>>,
     time_step: f64,
     duration: f64,
@@ -25,7 +25,7 @@ impl Simulation {
         self.component_list.push(new_box);
     }
 
-    pub fn get_component_inputs(&mut self) {}
+    pub fn spread_voltages(&mut self) {}
 }
 
 #[allow(unused_imports)]
@@ -45,10 +45,14 @@ mod tests {
     #[test]
     fn adding_components() {
         let mut sim = Simulation::new();
-        let a_node = Arc::new(Node::new());
-        let b_node = Arc::new(Node::new());
-        let resistor = resistor::Resistor::new(a_node.id, b_node.id);
-        let voltage_source = voltage_source::VoltageSource::new(a_node.id, b_node.id, 12.0);
+        let (pos_id, pos_node) = Node::new();
+        let (gnd_id, mut gnd_node) = Node::new();
+        gnd_node.make_ground();
+        sim.node_list.insert(pos_id, pos_node);
+        sim.node_list.insert(gnd_id, gnd_node);
+
+        let resistor = resistor::Resistor::new(pos_id, gnd_id);
+        let voltage_source = voltage_source::VoltageSource::new(pos_id, gnd_id, 12.0);
         sim.add_component(resistor);
         sim.add_component(voltage_source);
     }

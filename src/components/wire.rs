@@ -27,8 +27,8 @@ mod tests {
 
     #[test]
     fn creation() {
-        let left_node = Node::new();
-        let right_node = Node::new();
-        let _ = Wire::new(left_node.id, right_node.id);
+        let (lid, _lnode) = Node::new();
+        let (rid, _rnode) = Node::new();
+        let _ = Wire::new(lid, rid);
     }
 }

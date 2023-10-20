@@ -28,8 +28,8 @@ mod tests {
 
     #[test]
     fn creation() {
-        let pos_node = Node::new();
-        let gnd_node = Node::new();
-        let _ = VoltageSource::new(pos_node.id, gnd_node.id, 12.0f64);
+        let (pid, _pnode) = Node::new();
+        let (gid, _gnode) = Node::new();
+        let _ = VoltageSource::new(pid, gid, 12.0f64);
     }
 }
