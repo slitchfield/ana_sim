@@ -22,10 +22,15 @@ impl VoltageSource {
             voltage,
         }
     }
+}
 
-    pub fn get_node_weakref(&self) -> Weak<Node> {
+use crate::components::Component;
+impl Component for VoltageSource {
+    fn get_node_weakref(&self) -> Weak<Node> {
         Arc::downgrade(&self.own_node)
     }
+
+    fn pull_in_state(&self) {}
 }
 
 #[allow(unused_imports)]

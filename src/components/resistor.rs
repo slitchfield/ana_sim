@@ -26,6 +26,15 @@ impl Resistor {
     }
 }
 
+use crate::components::Component;
+impl Component for Resistor {
+    fn get_node_weakref(&self) -> Weak<Node> {
+        Arc::downgrade(&self.own_node)
+    }
+
+    fn pull_in_state(&self) {}
+}
+
 #[allow(unused_imports)]
 mod tests {
     use super::*;

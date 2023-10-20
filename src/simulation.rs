@@ -5,10 +5,10 @@ use crate::components::Component;
 use crate::node::Node;
 
 #[allow(dead_code)]
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct Simulation {
     node_list: Vec<Weak<Node>>,
-    component_list: Vec<Arc<Component>>,
+    component_list: Vec<Arc<dyn Component>>,
     time_step: f64,
     duration: f64,
 }
@@ -21,14 +21,17 @@ impl Simulation {
         }
     }
 
-    pub fn add_component(&mut self, new_component: Component) {
-        let new_component_handle: Weak<Node> = match &new_component {
-            Component::Resistor(res) => res.get_node_weakref(),
-            Component::VoltageSource(vs) => vs.get_node_weakref(),
-        };
+    pub fn add_component(&mut self, new_component: impl Component + 'static) {
+        let new_component_handle = new_component.get_node_weakref();
         let new_arc = Arc::new(new_component);
         self.node_list.push(new_component_handle);
         self.component_list.push(new_arc);
+    }
+
+    pub fn get_component_inputs(&self) {
+        for component in &self.component_list {
+            component.pull_in_state();
+        }
     }
 }
 
@@ -56,7 +59,7 @@ mod tests {
             Arc::downgrade(&b_node),
             12.0,
         );
-        sim.add_component(Component::Resistor(resistor));
-        sim.add_component(Component::VoltageSource(voltage_source));
+        sim.add_component(resistor);
+        sim.add_component(voltage_source);
     }
 }

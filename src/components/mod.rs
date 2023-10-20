@@ -1,11 +1,12 @@
 pub mod resistor;
 pub mod voltage_source;
 
-#[allow(dead_code)]
-#[derive(Debug)]
-pub enum Component {
-    Resistor(resistor::Resistor),
-    VoltageSource(voltage_source::VoltageSource),
+use crate::node::Node;
+use std::sync::Weak;
+
+pub trait Component {
+    fn pull_in_state(&self);
+    fn get_node_weakref(&self) -> Weak<Node>;
 }
 
 #[allow(unused_imports)]
