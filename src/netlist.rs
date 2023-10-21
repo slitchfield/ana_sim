@@ -1,10 +1,13 @@
 use crate::components::Component;
 use std::collections::HashSet;
 
+use nalgebra::base::DMatrix;
+
 #[allow(dead_code)]
-#[derive(Default)]
 pub struct Netlist {
     component_list: Vec<Component>,
+
+    a_mat: Box<DMatrix<f64>>,
 }
 
 #[allow(dead_code)]
@@ -22,10 +25,19 @@ impl Netlist {
     pub fn initialize_dc_mna(&mut self) {
         // Construct A matrix
         // Dimensions must be N+MxN+M, where N is #nodes and M is #ind v sources
-        let _n = self.num_nodes();
+        let n = self.num_nodes();
+        let m = self.num_iv_sources();
+
+        let Netlist {
+            component_list: _,
+            a_mat,
+        } = self;
+
+        let new_a_mat = a_mat.to_owned().resize(n + m, n + m, 0.0);
+        self.a_mat = Box::new(new_a_mat);
     }
 
-    pub fn num_nodes(&self) -> u64 {
+    pub fn num_nodes(&self) -> usize {
         let mut nodeset: HashSet<u64> = HashSet::<u64>::new();
 
         for component in &self.component_list {
@@ -40,8 +52,29 @@ impl Netlist {
                 }
             }
         }
+        // MNA A matrix does not include ground node as a node!
+        nodeset.remove(&0u64);
+        nodeset.len()
+    }
 
-        0
+    pub fn num_iv_sources(&self) -> usize {
+        let mut num_iv_sources = 0usize;
+        for component in &self.component_list {
+            if let Component::IVoltageSource(_) = component {
+                num_iv_sources += 1;
+            }
+        }
+
+        num_iv_sources
+    }
+}
+
+impl Default for Netlist {
+    fn default() -> Self {
+        Self {
+            component_list: vec![],
+            a_mat: Box::new(nalgebra::dmatrix![]),
+        }
     }
 }
 
@@ -82,5 +115,25 @@ mod tests {
         let voltage_source = independent_voltage_source::IVoltageSource::new(pos_id, gnd_id, 12.0);
         net.add_component(Component::Resistor(resistor));
         net.add_component(Component::IVoltageSource(voltage_source));
+    }
+
+    #[test]
+    fn init_matrix_test() {
+        let mut net = Netlist::new();
+
+        let resistor = resistor::Resistor::new(1, 0);
+        let voltage_source = independent_voltage_source::IVoltageSource::new(1, 0, 12.0);
+        net.add_component(Component::Resistor(resistor));
+        net.add_component(Component::IVoltageSource(voltage_source));
+
+        // a_mat is uninitialized and thus 0x0
+        assert!(net.a_mat.ncols() == 0);
+        assert!(net.a_mat.nrows() == 0);
+
+        net.initialize_dc_mna();
+
+        // a_mat should now be n+m x n+m, i.e. (1 node + 1 indep vsource)
+        assert!(net.a_mat.ncols() == 2);
+        assert!(net.a_mat.nrows() == 2);
     }
 }

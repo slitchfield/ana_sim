@@ -14,3 +14,4 @@ name = "mybin"
 path = "src/bin/main.rs"
 
 [dependencies]
+nalgebra = "0.32.3"
