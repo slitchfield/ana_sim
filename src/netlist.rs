@@ -99,7 +99,7 @@ mod tests {
         let (gnd_id, mut gnd_node) = Node::new();
         gnd_node.make_ground();
 
-        let resistor = resistor::Resistor::new(pos_id, gnd_id);
+        let resistor = resistor::Resistor::new(pos_id, gnd_id, 1.0);
         let voltage_source = independent_voltage_source::IVoltageSource::new(pos_id, gnd_id, 12.0);
         net.add_component(Component::Resistor(resistor));
         net.add_component(Component::IVoltageSource(voltage_source));
@@ -111,7 +111,7 @@ mod tests {
         let (pos_id, _pos_node) = Node::new();
         let (gnd_id, _gnd_node) = Node::new();
 
-        let resistor = resistor::Resistor::new(pos_id, gnd_id);
+        let resistor = resistor::Resistor::new(pos_id, gnd_id, 1.0);
         let voltage_source = independent_voltage_source::IVoltageSource::new(pos_id, gnd_id, 12.0);
         net.add_component(Component::Resistor(resistor));
         net.add_component(Component::IVoltageSource(voltage_source));
@@ -121,7 +121,7 @@ mod tests {
     fn init_matrix_test() {
         let mut net = Netlist::new();
 
-        let resistor = resistor::Resistor::new(1, 0);
+        let resistor = resistor::Resistor::new(1, 0, 1.0);
         let voltage_source = independent_voltage_source::IVoltageSource::new(1, 0, 12.0);
         net.add_component(Component::Resistor(resistor));
         net.add_component(Component::IVoltageSource(voltage_source));

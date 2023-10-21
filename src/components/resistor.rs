@@ -3,14 +3,16 @@
 pub struct Resistor {
     pub a_node: u64,
     pub b_node: u64,
+    pub resistance: f64,
 }
 
 #[allow(dead_code)]
 impl Resistor {
-    pub fn new(a_node: u64, b_node: u64) -> Self {
+    pub fn new(a_node: u64, b_node: u64, resistance: f64) -> Self {
         Self {
             a_node,
             b_node,
+            resistance,
             //..Default::default()
         }
     }
@@ -26,6 +28,6 @@ mod tests {
     fn creation() {
         let (lid, _lnode) = Node::new();
         let (rid, _rnode) = Node::new();
-        let _ = Resistor::new(lid, rid);
+        let _ = Resistor::new(lid, rid, 1.0);
     }
 }
