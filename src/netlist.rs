@@ -29,26 +29,65 @@ impl Netlist {
         let n = self.num_nodes();
         let m = self.num_iv_sources();
 
-        let Netlist {
-            component_list: _,
-            a_mat,
-        } = self;
+        self.a_mat = Box::new(DMatrix::<f64>::from_element(n + m, n + m, 0.0));
 
-        let new_a_mat = a_mat.to_owned().resize(n + m, n + m, 0.0);
-        self.a_mat = Box::new(new_a_mat);
-
+        // Construct G matrix from conductances
+        let mut g_mat = DMatrix::<f64>::from_element(n, n, 0.0);
+        eprintln!(
+            "Allocated gmat with shape ({}, {})",
+            g_mat.nrows(),
+            g_mat.ncols()
+        );
         for component in &self.component_list {
             let stamps = match component {
-                Component::Resistor(res) => res.get_stamps(),
-                _ => {
+                Component::Resistor(res) => res.get_gmat_stamps(),
+                Component::ICurrentSource(_is) => {
+                    vec![]
+                }
+                Component::IVoltageSource(_vs) => {
                     vec![]
                 }
             };
             for Stamp(r, c, val) in stamps {
-                let mut cell = self.a_mat.view_mut((r, c), (1, 1));
+                eprintln!("Got gmat stamp: {:?}", Stamp(r, c, val));
+                let mut cell = g_mat.view_mut((r - 1, c - 1), (1, 1));
                 cell[(0, 0)] += val;
             }
         }
+        let mut g_view = self.a_mat.view_mut((0, 0), (n, n));
+        g_view += g_mat;
+
+        // Construct B matrix from independent V sources
+        let mut b_mat = DMatrix::<f64>::from_element(n, m, 0.0);
+        eprintln!(
+            "Allocated gmat with shape ({}, {})",
+            b_mat.nrows(),
+            b_mat.ncols()
+        );
+        for component in &self.component_list {
+            let stamps = match component {
+                Component::IVoltageSource(vs) => vs.get_bmat_stamps(),
+                Component::Resistor(_) => vec![],
+                Component::ICurrentSource(_) => vec![],
+            };
+
+            for Stamp(r, c, val) in stamps {
+                eprintln!("Got bmat stamp: {:?}", Stamp(r, c, val));
+                let mut cell = b_mat.view_mut((r - 1, c - 1), (1, 1));
+                cell[(0, 0)] = val;
+            }
+        }
+        let mut b_view = self.a_mat.view_mut((0, n), (n, m));
+        b_view += b_mat;
+
+        // Construct C matrix from B matrix transpose, handling dependent sources
+        // TODO: handle dependent sources
+        let c_mat = b_view.transpose();
+        let mut c_view = self.a_mat.view_mut((n, 0), (m, n));
+        c_view += c_mat;
+
+        // Construct D matrix from dependent sources
+        // TODO: handle dependent sources
     }
 
     pub fn num_nodes(&self) -> usize {
@@ -62,7 +101,7 @@ impl Netlist {
                 }
                 Component::IVoltageSource(vs) => {
                     nodeset.insert(vs.positive_node);
-                    nodeset.insert(vs.ground_node);
+                    nodeset.insert(vs.negative_node);
                 }
                 Component::ICurrentSource(is) => {
                     nodeset.insert(is.source_node);
@@ -120,7 +159,8 @@ mod tests {
         gnd_node.make_ground();
 
         let resistor = resistor::Resistor::new(pos_id, gnd_id, 1.0);
-        let voltage_source = independent_voltage_source::IVoltageSource::new(pos_id, gnd_id, 12.0);
+        let voltage_source =
+            independent_voltage_source::IVoltageSource::new(1, pos_id, gnd_id, 12.0);
         net.add_component(Component::Resistor(resistor));
         net.add_component(Component::IVoltageSource(voltage_source));
     }
@@ -132,7 +172,8 @@ mod tests {
         let (gnd_id, _gnd_node) = Node::new();
 
         let resistor = resistor::Resistor::new(pos_id, gnd_id, 1.0);
-        let voltage_source = independent_voltage_source::IVoltageSource::new(pos_id, gnd_id, 12.0);
+        let voltage_source =
+            independent_voltage_source::IVoltageSource::new(1, pos_id, gnd_id, 12.0);
         net.add_component(Component::Resistor(resistor));
         net.add_component(Component::IVoltageSource(voltage_source));
     }
@@ -142,7 +183,7 @@ mod tests {
         let mut net = Netlist::new();
 
         let resistor = resistor::Resistor::new(1, 0, 1.0);
-        let voltage_source = independent_voltage_source::IVoltageSource::new(1, 0, 12.0);
+        let voltage_source = independent_voltage_source::IVoltageSource::new(1, 1, 0, 12.0);
         net.add_component(Component::Resistor(resistor));
         net.add_component(Component::IVoltageSource(voltage_source));
 
@@ -162,7 +203,7 @@ mod tests {
         // Based on example from S3.1.5 of http://qucs.github.io/docs/technical/technical.pdf
         let mut net = Netlist::new();
 
-        let v1 = independent_voltage_source::IVoltageSource::new(1, 0, 1.0);
+        let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 1.0);
         let r1 = resistor::Resistor::new(1, 2, 5.0);
         let r2 = resistor::Resistor::new(0, 2, 10.0);
         let i1 = independent_current_source::ICurrentSource::new(0, 2, 1.0);
@@ -180,9 +221,11 @@ mod tests {
         assert!(net.a_mat.ncols() == 3);
         assert!(net.a_mat.nrows() == 3);
 
-        assert_float_relative_eq!(net.a_mat.view((1, 1), (1, 1))[(0, 0)], 0.2f64);
-        assert_float_relative_eq!(net.a_mat.view((1, 2), (1, 1))[(0, 0)], -0.2f64);
-        assert_float_relative_eq!(net.a_mat.view((2, 1), (1, 1))[(0, 0)], -0.2f64);
-        assert_float_relative_eq!(net.a_mat.view((2, 2), (1, 1))[(0, 0)], 0.3f64);
+        assert_float_relative_eq!(net.a_mat.view((0, 0), (1, 1))[(0, 0)], 0.2f64);
+        assert_float_relative_eq!(net.a_mat.view((0, 1), (1, 1))[(0, 0)], -0.2f64);
+        assert_float_relative_eq!(net.a_mat.view((1, 0), (1, 1))[(0, 0)], -0.2f64);
+        assert_float_relative_eq!(net.a_mat.view((1, 1), (1, 1))[(0, 0)], 0.3f64);
+        assert_float_relative_eq!(net.a_mat.view((0, 2), (1, 1))[(0, 0)], 1.0f64);
+        assert_float_relative_eq!(net.a_mat.view((2, 0), (1, 1))[(0, 0)], 1.0f64);
     }
 }

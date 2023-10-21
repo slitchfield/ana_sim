@@ -19,7 +19,7 @@ impl Resistor {
         }
     }
 
-    pub fn get_stamps(&self) -> Vec<Stamp> {
+    pub fn get_gmat_stamps(&self) -> Vec<Stamp> {
         let mut ret_vec: Vec<Stamp> = vec![];
 
         // Calculate diagonal elements as 1 / resistance

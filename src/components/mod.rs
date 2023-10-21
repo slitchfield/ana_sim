@@ -2,6 +2,7 @@ pub mod independent_current_source;
 pub mod independent_voltage_source;
 pub mod resistor;
 
+#[derive(Debug)]
 pub struct Stamp(pub usize, pub usize, pub f64);
 
 #[allow(dead_code)]
