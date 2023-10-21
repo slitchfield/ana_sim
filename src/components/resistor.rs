@@ -1,13 +1,8 @@
 #[allow(dead_code)]
 #[derive(Default, Debug)]
 pub struct Resistor {
-    a_node: u64,
-    b_node: u64,
-
-    a_v: f64,
-    a_c: f64,
-    b_v: f64,
-    b_c: f64,
+    pub a_node: u64,
+    pub b_node: u64,
 }
 
 #[allow(dead_code)]
@@ -16,13 +11,10 @@ impl Resistor {
         Self {
             a_node,
             b_node,
-            ..Default::default()
+            //..Default::default()
         }
     }
 }
-
-use crate::components::Component;
-impl Component for Resistor {}
 
 #[allow(unused_imports)]
 mod tests {

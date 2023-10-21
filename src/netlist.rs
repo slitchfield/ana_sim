@@ -1,38 +1,47 @@
-use std::collections::HashMap;
-
 use crate::components::Component;
-use crate::node::Node;
+use std::collections::HashSet;
 
 #[allow(dead_code)]
 #[derive(Default)]
-pub struct Simulation {
-    node_list: HashMap<u64, Node>,
-    component_list: Vec<Box<dyn Component>>,
-    time_step: f64,
-    duration: f64,
+pub struct Netlist {
+    component_list: Vec<Component>,
 }
 
 #[allow(dead_code)]
-impl Simulation {
+impl Netlist {
     pub fn new() -> Self {
-        Simulation {
+        Netlist {
             ..Default::default()
         }
     }
 
-    pub fn add_component(&mut self, new_component: impl Component + 'static) {
-        let new_box = Box::new(new_component);
-        self.component_list.push(new_box);
+    pub fn add_component(&mut self, new_component: Component) {
+        self.component_list.push(new_component);
     }
 
-    pub fn run(&mut self) {
-        let mut cur_time: f64 = 0.0;
-        while cur_time <= self.duration {
-            // Run the simulation for t = cur_time
+    pub fn initialize_dc_mna(&mut self) {
+        // Construct A matrix
+        // Dimensions must be N+MxN+M, where N is #nodes and M is #ind v sources
+        let _n = self.num_nodes();
+    }
 
-            // Increment cur_time
-            cur_time += self.time_step;
+    pub fn num_nodes(&self) -> u64 {
+        let mut nodeset: HashSet<u64> = HashSet::<u64>::new();
+
+        for component in &self.component_list {
+            match component {
+                Component::Resistor(res) => {
+                    nodeset.insert(res.a_node);
+                    nodeset.insert(res.b_node);
+                }
+                Component::IVoltageSource(vs) => {
+                    nodeset.insert(vs.positive_node);
+                    nodeset.insert(vs.ground_node);
+                }
+            }
         }
+
+        0
     }
 }
 
@@ -47,49 +56,31 @@ mod tests {
 
     #[test]
     fn simulation_creation() {
-        let _ = Simulation::new();
+        let _ = Netlist::new();
     }
 
     #[test]
     fn adding_components() {
-        let mut sim = Simulation::new();
-        let (pos_id, pos_node) = Node::new();
+        let mut net = Netlist::new();
+        let (pos_id, _pos_node) = Node::new();
         let (gnd_id, mut gnd_node) = Node::new();
         gnd_node.make_ground();
-        sim.node_list.insert(pos_id, pos_node);
-        sim.node_list.insert(gnd_id, gnd_node);
 
         let resistor = resistor::Resistor::new(pos_id, gnd_id);
         let voltage_source = independent_voltage_source::IVoltageSource::new(pos_id, gnd_id, 12.0);
-        sim.add_component(resistor);
-        sim.add_component(voltage_source);
-    }
-
-    #[test]
-    fn run_test() {
-        let mut sim = Simulation::new();
-        sim.time_step = 1e-2;
-        sim.duration = 1.0;
-        sim.run();
+        net.add_component(Component::Resistor(resistor));
+        net.add_component(Component::IVoltageSource(voltage_source));
     }
 
     #[test]
     fn simple_vs_resistor_test() {
-        let mut sim = Simulation::new();
-        let (pos_id, pos_node) = Node::new();
-        let (gnd_id, mut gnd_node) = Node::new();
-        gnd_node.make_ground();
-        sim.node_list.insert(pos_id, pos_node);
-        sim.node_list.insert(gnd_id, gnd_node);
+        let mut net = Netlist::new();
+        let (pos_id, _pos_node) = Node::new();
+        let (gnd_id, _gnd_node) = Node::new();
 
         let resistor = resistor::Resistor::new(pos_id, gnd_id);
         let voltage_source = independent_voltage_source::IVoltageSource::new(pos_id, gnd_id, 12.0);
-        sim.add_component(resistor);
-        sim.add_component(voltage_source);
-
-        sim.time_step = 1e-3;
-        sim.duration = 1.0;
-
-        sim.run();
+        net.add_component(Component::Resistor(resistor));
+        net.add_component(Component::IVoltageSource(voltage_source));
     }
 }

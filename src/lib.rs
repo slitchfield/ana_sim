@@ -3,8 +3,8 @@ pub fn add(left: usize, right: usize) -> usize {
 }
 
 mod components;
+mod netlist;
 mod node;
-mod simulation;
 
 #[cfg(test)]
 mod tests {

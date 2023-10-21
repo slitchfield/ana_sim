@@ -1,8 +1,8 @@
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct IVoltageSource {
-    positive_node: u64,
-    ground_node: u64,
+    pub positive_node: u64,
+    pub ground_node: u64,
     voltage: f64,
 }
 
@@ -16,9 +16,6 @@ impl IVoltageSource {
         }
     }
 }
-
-use crate::components::Component;
-impl Component for IVoltageSource {}
 
 #[allow(unused_imports)]
 mod tests {

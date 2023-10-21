@@ -1,7 +1,11 @@
 pub mod independent_voltage_source;
 pub mod resistor;
 
-pub trait Component {}
+#[allow(dead_code)]
+pub enum Component {
+    Resistor(resistor::Resistor),
+    IVoltageSource(independent_voltage_source::IVoltageSource),
+}
 
 #[allow(unused_imports)]
 mod tests {
