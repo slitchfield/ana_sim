@@ -25,14 +25,22 @@ impl Simulation {
         self.component_list.push(new_box);
     }
 
-    pub fn spread_voltages(&mut self) {}
+    pub fn run(&mut self) {
+        let mut cur_time: f64 = 0.0;
+        while cur_time <= self.duration {
+            // Run the simulation for t = cur_time
+
+            // Increment cur_time
+            cur_time += self.time_step;
+        }
+    }
 }
 
 #[allow(unused_imports)]
 mod tests {
     use super::*;
+    use crate::components::independent_voltage_source;
     use crate::components::resistor;
-    use crate::components::voltage_source;
     use crate::components::Component;
     use crate::node::Node;
     use std::sync::Arc;
@@ -52,8 +60,36 @@ mod tests {
         sim.node_list.insert(gnd_id, gnd_node);
 
         let resistor = resistor::Resistor::new(pos_id, gnd_id);
-        let voltage_source = voltage_source::VoltageSource::new(pos_id, gnd_id, 12.0);
+        let voltage_source = independent_voltage_source::IVoltageSource::new(pos_id, gnd_id, 12.0);
         sim.add_component(resistor);
         sim.add_component(voltage_source);
+    }
+
+    #[test]
+    fn run_test() {
+        let mut sim = Simulation::new();
+        sim.time_step = 1e-2;
+        sim.duration = 1.0;
+        sim.run();
+    }
+
+    #[test]
+    fn simple_vs_resistor_test() {
+        let mut sim = Simulation::new();
+        let (pos_id, pos_node) = Node::new();
+        let (gnd_id, mut gnd_node) = Node::new();
+        gnd_node.make_ground();
+        sim.node_list.insert(pos_id, pos_node);
+        sim.node_list.insert(gnd_id, gnd_node);
+
+        let resistor = resistor::Resistor::new(pos_id, gnd_id);
+        let voltage_source = independent_voltage_source::IVoltageSource::new(pos_id, gnd_id, 12.0);
+        sim.add_component(resistor);
+        sim.add_component(voltage_source);
+
+        sim.time_step = 1e-3;
+        sim.duration = 1.0;
+
+        sim.run();
     }
 }

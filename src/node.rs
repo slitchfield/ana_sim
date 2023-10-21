@@ -10,9 +10,9 @@ fn get_unique_id() -> u64 {
 #[derive(Default, Debug)]
 pub struct Node {
     pub id: u64,
-    voltage: f64,
-    updated: bool,
-    is_gnd: bool,
+    pub voltage: f64,
+    pub updated: bool,
+    pub is_gnd: bool,
 }
 
 #[allow(dead_code)]
