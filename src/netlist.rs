@@ -1,4 +1,5 @@
 use crate::components::Component;
+use crate::components::Stamp;
 use std::collections::HashSet;
 
 use nalgebra::base::DMatrix;
@@ -35,6 +36,19 @@ impl Netlist {
 
         let new_a_mat = a_mat.to_owned().resize(n + m, n + m, 0.0);
         self.a_mat = Box::new(new_a_mat);
+
+        for component in &self.component_list {
+            let stamps = match component {
+                Component::Resistor(res) => res.get_stamps(),
+                _ => {
+                    vec![]
+                }
+            };
+            for Stamp(r, c, val) in stamps {
+                let mut cell = self.a_mat.view_mut((r, c), (1, 1));
+                cell[(0, 0)] += val;
+            }
+        }
     }
 
     pub fn num_nodes(&self) -> usize {
@@ -49,6 +63,10 @@ impl Netlist {
                 Component::IVoltageSource(vs) => {
                     nodeset.insert(vs.positive_node);
                     nodeset.insert(vs.ground_node);
+                }
+                Component::ICurrentSource(is) => {
+                    nodeset.insert(is.source_node);
+                    nodeset.insert(is.sink_node);
                 }
             }
         }
@@ -81,10 +99,12 @@ impl Default for Netlist {
 #[allow(unused_imports)]
 mod tests {
     use super::*;
+    use crate::components::independent_current_source;
     use crate::components::independent_voltage_source;
     use crate::components::resistor;
     use crate::components::Component;
     use crate::node::Node;
+    use assert_float_eq::*;
     use std::sync::Arc;
 
     #[test]
@@ -118,7 +138,7 @@ mod tests {
     }
 
     #[test]
-    fn init_matrix_test() {
+    fn init_matrix_dimensions() {
         let mut net = Netlist::new();
 
         let resistor = resistor::Resistor::new(1, 0, 1.0);
@@ -135,5 +155,34 @@ mod tests {
         // a_mat should now be n+m x n+m, i.e. (1 node + 1 indep vsource)
         assert!(net.a_mat.ncols() == 2);
         assert!(net.a_mat.nrows() == 2);
+    }
+
+    #[test]
+    fn init_matrix_values() {
+        // Based on example from S3.1.5 of http://qucs.github.io/docs/technical/technical.pdf
+        let mut net = Netlist::new();
+
+        let v1 = independent_voltage_source::IVoltageSource::new(1, 0, 1.0);
+        let r1 = resistor::Resistor::new(1, 2, 5.0);
+        let r2 = resistor::Resistor::new(0, 2, 10.0);
+        let i1 = independent_current_source::ICurrentSource::new(0, 2, 1.0);
+
+        net.add_component(Component::IVoltageSource(v1));
+        net.add_component(Component::Resistor(r1));
+        net.add_component(Component::Resistor(r2));
+        net.add_component(Component::ICurrentSource(i1));
+
+        assert!(net.a_mat.ncols() == 0);
+        assert!(net.a_mat.nrows() == 0);
+        net.initialize_dc_mna();
+
+        // a_mat should now be n+m x n+m, i.e. (2 node + 1 indep vsource)
+        assert!(net.a_mat.ncols() == 3);
+        assert!(net.a_mat.nrows() == 3);
+
+        assert_float_relative_eq!(net.a_mat.view((1, 1), (1, 1))[(0, 0)], 0.2f64);
+        assert_float_relative_eq!(net.a_mat.view((1, 2), (1, 1))[(0, 0)], -0.2f64);
+        assert_float_relative_eq!(net.a_mat.view((2, 1), (1, 1))[(0, 0)], -0.2f64);
+        assert_float_relative_eq!(net.a_mat.view((2, 2), (1, 1))[(0, 0)], 0.3f64);
     }
 }
