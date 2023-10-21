@@ -18,6 +18,10 @@ impl ICurrentSource {
         }
     }
 
+    pub fn is_linear(&self) -> bool {
+        true
+    }
+
     pub fn get_zmat_stamps(&self) -> Vec<Stamp> {
         // The z matrix is 1×(M+N) (N is the number of nodes, and M is the number of independent
         //   voltage sources) and:

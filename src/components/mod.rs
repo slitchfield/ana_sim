@@ -12,6 +12,16 @@ pub enum Component {
     ICurrentSource(independent_current_source::ICurrentSource),
 }
 
+impl Component {
+    pub fn is_linear(&self) -> bool {
+        match self {
+            Component::Resistor(res) => res.is_linear(),
+            Component::IVoltageSource(vs) => vs.is_linear(),
+            Component::ICurrentSource(is) => is.is_linear(),
+        }
+    }
+}
+
 #[allow(unused_imports)]
 mod tests {
     use super::{independent_voltage_source::IVoltageSource, resistor::Resistor, *};

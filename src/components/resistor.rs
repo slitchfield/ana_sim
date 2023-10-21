@@ -54,6 +54,10 @@ impl Resistor {
 
         ret_vec
     }
+
+    pub fn is_linear(&self) -> bool {
+        true
+    }
 }
 
 #[allow(unused_imports)]

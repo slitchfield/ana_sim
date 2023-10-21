@@ -20,6 +20,10 @@ impl IVoltageSource {
         }
     }
 
+    pub fn is_linear(&self) -> bool {
+        true
+    }
+
     pub fn get_bmat_stamps(&self) -> Vec<Stamp> {
         // The B matrix is an N×M matrix with only 0, 1 and -1 elements. Each location in the matrix
         // corresponds to a particular voltage source (first dimension) or a node (second dimension). If the

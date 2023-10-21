@@ -7,8 +7,10 @@ use nalgebra::base::DMatrix;
 #[allow(dead_code)]
 pub struct Netlist {
     component_list: Vec<Component>,
+    initialized: bool,
 
     a_mat: Box<DMatrix<f64>>,
+    x_mat: Box<DMatrix<f64>>,
     z_mat: Box<DMatrix<f64>>,
 }
 
@@ -24,6 +26,10 @@ impl Netlist {
         self.component_list.push(new_component);
     }
 
+    pub fn is_linear(&self) -> bool {
+        self.component_list.iter().all(|c| c.is_linear())
+    }
+
     pub fn initialize_dc_mna(&mut self) {
         // Construct A matrix
         // Dimensions must be N+MxN+M, where N is #nodes and M is #ind v sources
@@ -31,6 +37,7 @@ impl Netlist {
         let m = self.num_iv_sources();
 
         self.a_mat = Box::new(DMatrix::<f64>::from_element(n + m, n + m, 0.0));
+        self.x_mat = Box::new(DMatrix::<f64>::from_element(n + m, 1, 0.0));
         self.z_mat = Box::new(DMatrix::<f64>::from_element(n + m, 1, 0.0));
 
         // Construct G matrix from conductances
@@ -121,6 +128,30 @@ impl Netlist {
             let mut cell = self.z_mat.view_mut((n + r - 1, c - 1), (1, 1));
             cell[(0, 0)] = val;
         }
+
+        self.initialized = true;
+    }
+
+    pub fn solve_dc_mna(&mut self) {
+        //TODO: return a result of the solution, encoding whether the solve was initialized or not
+        assert!(self.initialized);
+        assert!(self.is_linear());
+
+        // Dimensions must be N+MxN+M, where N is #nodes and M is #ind v sources
+        let n = self.num_nodes();
+        let m = self.num_iv_sources();
+
+        let a_inv = self
+            .a_mat
+            .clone()
+            .try_inverse()
+            .expect("Could not invert the A Matrix!");
+        let a_inv_view = a_inv.view((0, 0), (n + m, n + m));
+        let z_mat_view = self.z_mat.view((0, 0), (n + m, 1));
+        let x_mat = a_inv_view * z_mat_view;
+
+        let mut x_mat_view = self.x_mat.view_mut((0, 0), (n + m, 1));
+        x_mat_view += x_mat;
     }
 
     pub fn num_nodes(&self) -> usize {
@@ -163,7 +194,9 @@ impl Default for Netlist {
     fn default() -> Self {
         Self {
             component_list: vec![],
+            initialized: false,
             a_mat: Box::new(nalgebra::dmatrix![]),
+            x_mat: Box::new(nalgebra::dmatrix![]),
             z_mat: Box::new(nalgebra::dmatrix![]),
         }
     }
@@ -272,5 +305,49 @@ mod tests {
         assert_float_relative_eq!(net.z_mat.view((0, 0), (1, 1))[(0, 0)], 0.0f64);
         assert_float_relative_eq!(net.z_mat.view((1, 0), (1, 1))[(0, 0)], 1.0f64);
         assert_float_relative_eq!(net.z_mat.view((2, 0), (1, 1))[(0, 0)], 1.0f64);
+    }
+
+    #[test]
+    fn dc_mna_solve() {
+        // Based on example from S3.1.5 of http://qucs.github.io/docs/technical/technical.pdf
+        let mut net = Netlist::new();
+
+        let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 1.0);
+        let r1 = resistor::Resistor::new(1, 2, 5.0);
+        let r2 = resistor::Resistor::new(0, 2, 10.0);
+        let i1 = independent_current_source::ICurrentSource::new(0, 2, 1.0);
+
+        net.add_component(Component::IVoltageSource(v1));
+        net.add_component(Component::Resistor(r1));
+        net.add_component(Component::Resistor(r2));
+        net.add_component(Component::ICurrentSource(i1));
+
+        assert!(net.a_mat.ncols() == 0);
+        assert!(net.a_mat.nrows() == 0);
+        assert!(net.z_mat.ncols() == 0);
+        assert!(net.z_mat.nrows() == 0);
+        net.initialize_dc_mna();
+
+        // a_mat should now be n+m x n+m, i.e. (2 node + 1 indep vsource)
+        assert!(net.a_mat.ncols() == 3);
+        assert!(net.a_mat.nrows() == 3);
+        assert!(net.z_mat.ncols() == 1);
+        assert!(net.z_mat.nrows() == 3);
+
+        assert_float_relative_eq!(net.a_mat.view((0, 0), (1, 1))[(0, 0)], 0.2f64);
+        assert_float_relative_eq!(net.a_mat.view((0, 1), (1, 1))[(0, 0)], -0.2f64);
+        assert_float_relative_eq!(net.a_mat.view((1, 0), (1, 1))[(0, 0)], -0.2f64);
+        assert_float_relative_eq!(net.a_mat.view((1, 1), (1, 1))[(0, 0)], 0.3f64);
+        assert_float_relative_eq!(net.a_mat.view((0, 2), (1, 1))[(0, 0)], 1.0f64);
+        assert_float_relative_eq!(net.a_mat.view((2, 0), (1, 1))[(0, 0)], 1.0f64);
+        assert_float_relative_eq!(net.z_mat.view((0, 0), (1, 1))[(0, 0)], 0.0f64);
+        assert_float_relative_eq!(net.z_mat.view((1, 0), (1, 1))[(0, 0)], 1.0f64);
+        assert_float_relative_eq!(net.z_mat.view((2, 0), (1, 1))[(0, 0)], 1.0f64);
+
+        net.solve_dc_mna();
+
+        assert_float_relative_eq!(net.x_mat.view((0, 0), (1, 1))[(0, 0)], 1.0f64);
+        assert_float_relative_eq!(net.x_mat.view((1, 0), (1, 1))[(0, 0)], 4.0f64);
+        assert_float_relative_eq!(net.x_mat.view((2, 0), (1, 1))[(0, 0)], 0.6f64);
     }
 }
