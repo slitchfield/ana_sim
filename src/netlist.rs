@@ -9,6 +9,7 @@ pub struct Netlist {
     component_list: Vec<Component>,
 
     a_mat: Box<DMatrix<f64>>,
+    z_mat: Box<DMatrix<f64>>,
 }
 
 #[allow(dead_code)]
@@ -30,6 +31,7 @@ impl Netlist {
         let m = self.num_iv_sources();
 
         self.a_mat = Box::new(DMatrix::<f64>::from_element(n + m, n + m, 0.0));
+        self.z_mat = Box::new(DMatrix::<f64>::from_element(n + m, 1, 0.0));
 
         // Construct G matrix from conductances
         let mut g_mat = DMatrix::<f64>::from_element(n, n, 0.0);
@@ -88,6 +90,37 @@ impl Netlist {
 
         // Construct D matrix from dependent sources
         // TODO: handle dependent sources
+
+        // Construct Z matrix from independent sources
+        // The z matrix holds our independent voltage and current sources and will be developed as the
+        // combination of 2 smaller matrices i and e. It is quite easy to formulate.
+        // z = [i; e]
+        // The z matrix is 1×(M+N) (N is the number of nodes, and M is the number of independent
+        // voltage sources) and:
+        // • the i matrix is 1×N and contains the sum of the currents through the passive elements into
+        //   the corresponding node (either zero, or the sum of independent current sources)
+        // • the e matrix is 1×M and holds the values of the independent voltage source
+        let mut v_stamps: Vec<Stamp> = vec![];
+        let mut i_stamps: Vec<Stamp> = vec![];
+        for component in &self.component_list {
+            match component {
+                Component::IVoltageSource(vs) => {
+                    v_stamps.append(&mut vs.get_zmat_stamps());
+                }
+                Component::ICurrentSource(is) => {
+                    i_stamps.append(&mut is.get_zmat_stamps());
+                }
+                Component::Resistor(_) => {}
+            }
+        }
+        for Stamp(r, c, val) in i_stamps {
+            let mut cell = self.z_mat.view_mut((r - 1, c - 1), (1, 1));
+            cell[(0, 0)] = val;
+        }
+        for Stamp(r, c, val) in v_stamps {
+            let mut cell = self.z_mat.view_mut((n + r - 1, c - 1), (1, 1));
+            cell[(0, 0)] = val;
+        }
     }
 
     pub fn num_nodes(&self) -> usize {
@@ -131,6 +164,7 @@ impl Default for Netlist {
         Self {
             component_list: vec![],
             a_mat: Box::new(nalgebra::dmatrix![]),
+            z_mat: Box::new(nalgebra::dmatrix![]),
         }
     }
 }
@@ -190,12 +224,16 @@ mod tests {
         // a_mat is uninitialized and thus 0x0
         assert!(net.a_mat.ncols() == 0);
         assert!(net.a_mat.nrows() == 0);
+        assert!(net.z_mat.ncols() == 0);
+        assert!(net.z_mat.nrows() == 0);
 
         net.initialize_dc_mna();
 
         // a_mat should now be n+m x n+m, i.e. (1 node + 1 indep vsource)
         assert!(net.a_mat.ncols() == 2);
         assert!(net.a_mat.nrows() == 2);
+        assert!(net.z_mat.ncols() == 1);
+        assert!(net.z_mat.nrows() == 2);
     }
 
     #[test]
@@ -215,11 +253,15 @@ mod tests {
 
         assert!(net.a_mat.ncols() == 0);
         assert!(net.a_mat.nrows() == 0);
+        assert!(net.z_mat.ncols() == 0);
+        assert!(net.z_mat.nrows() == 0);
         net.initialize_dc_mna();
 
         // a_mat should now be n+m x n+m, i.e. (2 node + 1 indep vsource)
         assert!(net.a_mat.ncols() == 3);
         assert!(net.a_mat.nrows() == 3);
+        assert!(net.z_mat.ncols() == 1);
+        assert!(net.z_mat.nrows() == 3);
 
         assert_float_relative_eq!(net.a_mat.view((0, 0), (1, 1))[(0, 0)], 0.2f64);
         assert_float_relative_eq!(net.a_mat.view((0, 1), (1, 1))[(0, 0)], -0.2f64);
@@ -227,5 +269,8 @@ mod tests {
         assert_float_relative_eq!(net.a_mat.view((1, 1), (1, 1))[(0, 0)], 0.3f64);
         assert_float_relative_eq!(net.a_mat.view((0, 2), (1, 1))[(0, 0)], 1.0f64);
         assert_float_relative_eq!(net.a_mat.view((2, 0), (1, 1))[(0, 0)], 1.0f64);
+        assert_float_relative_eq!(net.z_mat.view((0, 0), (1, 1))[(0, 0)], 0.0f64);
+        assert_float_relative_eq!(net.z_mat.view((1, 0), (1, 1))[(0, 0)], 1.0f64);
+        assert_float_relative_eq!(net.z_mat.view((2, 0), (1, 1))[(0, 0)], 1.0f64);
     }
 }

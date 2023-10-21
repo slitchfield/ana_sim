@@ -1,3 +1,5 @@
+use super::Stamp;
+
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct ICurrentSource {
@@ -14,6 +16,21 @@ impl ICurrentSource {
             sink_node,
             current,
         }
+    }
+
+    pub fn get_zmat_stamps(&self) -> Vec<Stamp> {
+        // The z matrix is 1×(M+N) (N is the number of nodes, and M is the number of independent
+        //   voltage sources) and:
+        //    • the i matrix is 1×N and contains the sum of the currents through the passive elements into
+        //      the corresponding node (either zero, or the sum of independent current sources
+        let mut retvec: Vec<Stamp> = vec![];
+        if self.source_node != 0 {
+            retvec.push(Stamp(self.source_node as _, 1, -self.current));
+        }
+        if self.sink_node != 0 {
+            retvec.push(Stamp(self.sink_node as _, 1, self.current));
+        }
+        retvec
     }
 }
 

@@ -36,6 +36,15 @@ impl IVoltageSource {
 
         ret_vec
     }
+
+    pub fn get_zmat_stamps(&self) -> Vec<Stamp> {
+        // The z matrix is 1×(M+N) (N is the number of nodes, and M is the number of independent
+        //    voltage sources) and:
+        //    • the i matrix is 1×N and contains the sum of the currents through the passive elements into
+        //    the corresponding node (either zero, or the sum of independent current sources)
+        //    • the e matrix is 1×M and holds the values of the independent voltage sources
+        vec![Stamp(self.source_num as _, 1, self.voltage)]
+    }
 }
 
 #[allow(unused_imports)]
