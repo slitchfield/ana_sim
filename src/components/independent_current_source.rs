@@ -41,7 +41,6 @@ impl ICurrentSource {
 #[allow(unused_imports)]
 mod tests {
     use super::*;
-    use crate::node::Node;
     use std::sync::Arc;
 
     #[test]

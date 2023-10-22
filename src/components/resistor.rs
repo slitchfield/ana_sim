@@ -63,13 +63,10 @@ impl Resistor {
 #[allow(unused_imports)]
 mod tests {
     use super::*;
-    use crate::node::Node;
     use std::sync::Arc;
 
     #[test]
     fn creation() {
-        let (lid, _lnode) = Node::new();
-        let (rid, _rnode) = Node::new();
-        let _ = Resistor::new(lid, rid, 1.0);
+        let _ = Resistor::new(0, 1, 1.0);
     }
 }

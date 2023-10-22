@@ -4,7 +4,6 @@ pub fn add(left: usize, right: usize) -> usize {
 
 mod components;
 mod netlist;
-mod node;
 
 #[cfg(test)]
 mod tests {

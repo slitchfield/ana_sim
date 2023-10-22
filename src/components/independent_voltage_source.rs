@@ -54,13 +54,10 @@ impl IVoltageSource {
 #[allow(unused_imports)]
 mod tests {
     use super::*;
-    use crate::node::Node;
     use std::sync::Arc;
 
     #[test]
     fn creation() {
-        let (pid, _pnode) = Node::new();
-        let (gid, _gnode) = Node::new();
-        let _ = IVoltageSource::new(1, pid, gid, 12.0f64);
+        let _ = IVoltageSource::new(1, 1, 0, 12.0f64);
     }
 }

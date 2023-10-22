@@ -25,7 +25,6 @@ impl Component {
 #[allow(unused_imports)]
 mod tests {
     use super::{independent_voltage_source::IVoltageSource, resistor::Resistor, *};
-    use crate::node::Node;
     use std::sync::Arc;
 
     #[allow(clippy::assertions_on_constants)]
