@@ -61,6 +61,7 @@ impl Netlist {
                 Component::ICurrentSource(_is) => {
                     vec![]
                 }
+                Component::VCCurrentSource(vccs) => vccs.get_gmat_stamps(),
                 Component::IVoltageSource(_vs) => {
                     vec![]
                 }
@@ -86,6 +87,7 @@ impl Netlist {
                 Component::IVoltageSource(vs) => vs.get_bmat_stamps(),
                 Component::Resistor(_) => vec![],
                 Component::ICurrentSource(_) => vec![],
+                Component::VCCurrentSource(_) => vec![],
             };
 
             for Stamp(r, c, val) in stamps {
@@ -126,6 +128,7 @@ impl Netlist {
                     i_stamps.append(&mut is.get_zmat_stamps());
                 }
                 Component::Resistor(_) => {}
+                Component::VCCurrentSource(_) => {}
             }
         }
         for Stamp(r, c, val) in i_stamps {
@@ -180,6 +183,12 @@ impl Netlist {
                 Component::ICurrentSource(is) => {
                     nodeset.insert(is.source_node);
                     nodeset.insert(is.sink_node);
+                }
+                Component::VCCurrentSource(vccs) => {
+                    nodeset.insert(vccs.source_node);
+                    nodeset.insert(vccs.sink_node);
+                    nodeset.insert(vccs.source_sensing_node);
+                    nodeset.insert(vccs.sink_sensing_node);
                 }
             }
         }

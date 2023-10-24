@@ -1,6 +1,7 @@
 pub mod independent_current_source;
 pub mod independent_voltage_source;
 pub mod resistor;
+pub mod vc_current_source;
 
 #[derive(Debug)]
 pub struct Stamp(pub usize, pub usize, pub f64);
@@ -10,6 +11,7 @@ pub enum Component {
     Resistor(resistor::Resistor),
     IVoltageSource(independent_voltage_source::IVoltageSource),
     ICurrentSource(independent_current_source::ICurrentSource),
+    VCCurrentSource(vc_current_source::VCCurrentSource),
 }
 
 impl Component {
@@ -18,6 +20,7 @@ impl Component {
             Component::Resistor(res) => res.is_linear(),
             Component::IVoltageSource(vs) => vs.is_linear(),
             Component::ICurrentSource(is) => is.is_linear(),
+            Component::VCCurrentSource(vccs) => vccs.is_linear(),
         }
     }
 }
