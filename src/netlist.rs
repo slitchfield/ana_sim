@@ -8,7 +8,14 @@ use nalgebra::base::DMatrix;
 pub struct Netlist {
     component_list: Vec<Component>,
     initialized: bool,
+    x_mat_valid: bool,
+    num_nodes: Option<usize>,
+    // TODO: evaluate possibilities for Option(x_mat) instead
+    //   Pros: cleaner representation, more idiomatic
+    //   Cons: more frequent allocation?
 
+    // TODO: change to sparse matrix representation
+    //   nalgebra-sparse will likely help
     a_mat: Box<DMatrix<f64>>,
     x_mat: Box<DMatrix<f64>>,
     z_mat: Box<DMatrix<f64>>,
@@ -34,6 +41,7 @@ impl Netlist {
         // Construct A matrix
         // Dimensions must be N+MxN+M, where N is #nodes and M is #ind v sources
         let n = self.num_nodes();
+        self.num_nodes = Some(n);
         let m = self.num_iv_sources();
 
         self.a_mat = Box::new(DMatrix::<f64>::from_element(n + m, n + m, 0.0));
@@ -141,6 +149,7 @@ impl Netlist {
         let n = self.num_nodes();
         let m = self.num_iv_sources();
 
+        // TODO: change from inversion to LU/Gauss elimination
         let a_inv = self
             .a_mat
             .clone()
@@ -152,6 +161,7 @@ impl Netlist {
 
         let mut x_mat_view = self.x_mat.view_mut((0, 0), (n + m, 1));
         x_mat_view += x_mat;
+        self.x_mat_valid = true;
     }
 
     pub fn num_nodes(&self) -> usize {
@@ -188,6 +198,25 @@ impl Netlist {
 
         num_iv_sources
     }
+
+    pub fn get_node_voltages(&self) -> Option<DMatrix<f64>> {
+        if self.x_mat_valid && self.num_nodes.is_some() {
+            Some(
+                self.x_mat
+                    .view(
+                        (0, 0),
+                        (
+                            self.num_nodes
+                                .expect("Checked that num_nodes is some, but is none"),
+                            1,
+                        ),
+                    )
+                    .into(),
+            )
+        } else {
+            None
+        }
+    }
 }
 
 impl Default for Netlist {
@@ -195,6 +224,9 @@ impl Default for Netlist {
         Self {
             component_list: vec![],
             initialized: false,
+            num_nodes: None,
+            x_mat_valid: false,
+
             a_mat: Box::new(nalgebra::dmatrix![]),
             x_mat: Box::new(nalgebra::dmatrix![]),
             z_mat: Box::new(nalgebra::dmatrix![]),
@@ -241,10 +273,15 @@ mod tests {
     fn init_matrix_dimensions() {
         let mut net = Netlist::new();
 
-        let resistor = resistor::Resistor::new(1, 0, 1.0);
-        let voltage_source = independent_voltage_source::IVoltageSource::new(1, 1, 0, 12.0);
-        net.add_component(Component::Resistor(resistor));
-        net.add_component(Component::IVoltageSource(voltage_source));
+        let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 1.0);
+        let r1 = resistor::Resistor::new(1, 2, 5.0);
+        let r2 = resistor::Resistor::new(0, 2, 10.0);
+        let i1 = independent_current_source::ICurrentSource::new(0, 2, 1.0);
+
+        net.add_component(Component::IVoltageSource(v1));
+        net.add_component(Component::Resistor(r1));
+        net.add_component(Component::Resistor(r2));
+        net.add_component(Component::ICurrentSource(i1));
 
         // a_mat is uninitialized and thus 0x0
         assert!(net.a_mat.ncols() == 0);
@@ -254,11 +291,11 @@ mod tests {
 
         net.initialize_dc_mna();
 
-        // a_mat should now be n+m x n+m, i.e. (1 node + 1 indep vsource)
-        assert!(net.a_mat.ncols() == 2);
-        assert!(net.a_mat.nrows() == 2);
+        // a_mat should now be n+m x n+m, i.e. (2 node + 1 indep vsource)
+        assert!(net.a_mat.ncols() == 3);
+        assert!(net.a_mat.nrows() == 3);
         assert!(net.z_mat.ncols() == 1);
-        assert!(net.z_mat.nrows() == 2);
+        assert!(net.z_mat.nrows() == 3);
     }
 
     #[test]
@@ -276,17 +313,7 @@ mod tests {
         net.add_component(Component::Resistor(r2));
         net.add_component(Component::ICurrentSource(i1));
 
-        assert!(net.a_mat.ncols() == 0);
-        assert!(net.a_mat.nrows() == 0);
-        assert!(net.z_mat.ncols() == 0);
-        assert!(net.z_mat.nrows() == 0);
         net.initialize_dc_mna();
-
-        // a_mat should now be n+m x n+m, i.e. (2 node + 1 indep vsource)
-        assert!(net.a_mat.ncols() == 3);
-        assert!(net.a_mat.nrows() == 3);
-        assert!(net.z_mat.ncols() == 1);
-        assert!(net.z_mat.nrows() == 3);
 
         assert_float_relative_eq!(net.a_mat.view((0, 0), (1, 1))[(0, 0)], 0.2f64);
         assert_float_relative_eq!(net.a_mat.view((0, 1), (1, 1))[(0, 0)], -0.2f64);
@@ -314,32 +341,37 @@ mod tests {
         net.add_component(Component::Resistor(r2));
         net.add_component(Component::ICurrentSource(i1));
 
-        assert!(net.a_mat.ncols() == 0);
-        assert!(net.a_mat.nrows() == 0);
-        assert!(net.z_mat.ncols() == 0);
-        assert!(net.z_mat.nrows() == 0);
         net.initialize_dc_mna();
-
-        // a_mat should now be n+m x n+m, i.e. (2 node + 1 indep vsource)
-        assert!(net.a_mat.ncols() == 3);
-        assert!(net.a_mat.nrows() == 3);
-        assert!(net.z_mat.ncols() == 1);
-        assert!(net.z_mat.nrows() == 3);
-
-        assert_float_relative_eq!(net.a_mat.view((0, 0), (1, 1))[(0, 0)], 0.2f64);
-        assert_float_relative_eq!(net.a_mat.view((0, 1), (1, 1))[(0, 0)], -0.2f64);
-        assert_float_relative_eq!(net.a_mat.view((1, 0), (1, 1))[(0, 0)], -0.2f64);
-        assert_float_relative_eq!(net.a_mat.view((1, 1), (1, 1))[(0, 0)], 0.3f64);
-        assert_float_relative_eq!(net.a_mat.view((0, 2), (1, 1))[(0, 0)], 1.0f64);
-        assert_float_relative_eq!(net.a_mat.view((2, 0), (1, 1))[(0, 0)], 1.0f64);
-        assert_float_relative_eq!(net.z_mat.view((0, 0), (1, 1))[(0, 0)], 0.0f64);
-        assert_float_relative_eq!(net.z_mat.view((1, 0), (1, 1))[(0, 0)], 1.0f64);
-        assert_float_relative_eq!(net.z_mat.view((2, 0), (1, 1))[(0, 0)], 1.0f64);
 
         net.solve_dc_mna();
 
         assert_float_relative_eq!(net.x_mat.view((0, 0), (1, 1))[(0, 0)], 1.0f64);
         assert_float_relative_eq!(net.x_mat.view((1, 0), (1, 1))[(0, 0)], 4.0f64);
         assert_float_relative_eq!(net.x_mat.view((2, 0), (1, 1))[(0, 0)], 0.6f64);
+    }
+
+    #[test]
+    fn get_node_voltages() {
+        let mut net = Netlist::new();
+
+        let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 1.0);
+        let r1 = resistor::Resistor::new(1, 2, 5.0);
+        let r2 = resistor::Resistor::new(0, 2, 10.0);
+        let i1 = independent_current_source::ICurrentSource::new(0, 2, 1.0);
+
+        net.add_component(Component::IVoltageSource(v1));
+        net.add_component(Component::Resistor(r1));
+        net.add_component(Component::Resistor(r2));
+        net.add_component(Component::ICurrentSource(i1));
+
+        net.initialize_dc_mna();
+
+        net.solve_dc_mna();
+
+        let node_voltages = net
+            .get_node_voltages()
+            .expect("voltages should be valid here");
+        assert_float_relative_eq!(node_voltages.view((0, 0), (1, 1))[(0, 0)], 1.0f64);
+        assert_float_relative_eq!(node_voltages.view((1, 0), (1, 1))[(0, 0)], 4.0f64);
     }
 }
