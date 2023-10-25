@@ -16,9 +16,9 @@ pub struct Netlist {
 
     // TODO: change to sparse matrix representation
     //   nalgebra-sparse will likely help
-    a_mat: Box<DMatrix<f64>>,
-    x_mat: Box<DMatrix<f64>>,
-    z_mat: Box<DMatrix<f64>>,
+    pub a_mat: Box<DMatrix<f64>>,
+    pub x_mat: Box<DMatrix<f64>>,
+    pub z_mat: Box<DMatrix<f64>>,
 }
 
 #[allow(dead_code)]
@@ -42,7 +42,7 @@ impl Netlist {
         // Dimensions must be N+MxN+M, where N is #nodes and M is #ind v sources
         let n = self.num_nodes();
         self.num_nodes = Some(n);
-        let m = self.num_iv_sources();
+        let m = self.num_aux_variables();
 
         self.a_mat = Box::new(DMatrix::<f64>::from_element(n + m, n + m, 0.0));
         self.x_mat = Box::new(DMatrix::<f64>::from_element(n + m, 1, 0.0));
@@ -65,6 +65,9 @@ impl Netlist {
                 Component::IVoltageSource(_vs) => {
                     vec![]
                 }
+                Component::CCCurrentSource(_) => {
+                    vec![]
+                }
             };
             for Stamp(r, c, val) in stamps {
                 eprintln!("Got gmat stamp: {:?}", Stamp(r, c, val));
@@ -78,32 +81,53 @@ impl Netlist {
         // Construct B matrix from independent V sources
         let mut b_mat = DMatrix::<f64>::from_element(n, m, 0.0);
         eprintln!(
-            "Allocated gmat with shape ({}, {})",
+            "Allocated bmat with shape ({}, {})",
             b_mat.nrows(),
             b_mat.ncols()
         );
         for component in &self.component_list {
             let stamps = match component {
                 Component::IVoltageSource(vs) => vs.get_bmat_stamps(),
-                Component::Resistor(_) => vec![],
-                Component::ICurrentSource(_) => vec![],
-                Component::VCCurrentSource(_) => vec![],
+                Component::CCCurrentSource(cccs) => cccs.get_bmat_stamps(),
+                Component::Resistor(_)
+                | Component::ICurrentSource(_)
+                | Component::VCCurrentSource(_) => vec![],
             };
 
             for Stamp(r, c, val) in stamps {
                 eprintln!("Got bmat stamp: {:?}", Stamp(r, c, val));
                 let mut cell = b_mat.view_mut((r - 1, c - 1), (1, 1));
-                cell[(0, 0)] = val;
+                cell[(0, 0)] += val;
             }
         }
         let mut b_view = self.a_mat.view_mut((0, n), (n, m));
-        b_view += b_mat;
+        b_view += b_mat.view_mut((0, 0), (n, m));
 
         // Construct C matrix from B matrix transpose, handling dependent sources
         // TODO: handle dependent sources
-        let c_mat = b_view.transpose();
+        let mut c_mat = DMatrix::<f64>::from_element(m, n, 0.0);
+        eprintln!(
+            "Allocated cmat with shape ({}, {})",
+            c_mat.nrows(),
+            c_mat.ncols()
+        );
+        for component in &self.component_list {
+            let stamps = match component {
+                Component::IVoltageSource(vs) => vs.get_cmat_stamps(),
+                Component::CCCurrentSource(cccs) => cccs.get_cmat_stamps(),
+                Component::Resistor(_)
+                | Component::ICurrentSource(_)
+                | Component::VCCurrentSource(_) => vec![],
+            };
+
+            for Stamp(r, c, val) in stamps {
+                eprintln!("Got cmat stamp: {:?}", Stamp(r, c, val));
+                let mut cell = c_mat.view_mut((r - 1, c - 1), (1, 1));
+                cell[(0, 0)] += val;
+            }
+        }
         let mut c_view = self.a_mat.view_mut((n, 0), (m, n));
-        c_view += c_mat;
+        c_view += c_mat.view_mut((0, 0), (m, n));
 
         // Construct D matrix from dependent sources
         // TODO: handle dependent sources
@@ -117,6 +141,7 @@ impl Netlist {
         // • the i matrix is 1×N and contains the sum of the currents through the passive elements into
         //   the corresponding node (either zero, or the sum of independent current sources)
         // • the e matrix is 1×M and holds the values of the independent voltage source
+        let mut z_mat = DMatrix::<f64>::from_element(n + m, 1, 0.0);
         let mut v_stamps: Vec<Stamp> = vec![];
         let mut i_stamps: Vec<Stamp> = vec![];
         for component in &self.component_list {
@@ -129,6 +154,7 @@ impl Netlist {
                 }
                 Component::Resistor(_) => {}
                 Component::VCCurrentSource(_) => {}
+                Component::CCCurrentSource(_) => {}
             }
         }
         for Stamp(r, c, val) in i_stamps {
@@ -139,6 +165,8 @@ impl Netlist {
             let mut cell = self.z_mat.view_mut((n + r - 1, c - 1), (1, 1));
             cell[(0, 0)] = val;
         }
+        let mut z_view_mut = self.z_mat.view_mut((0, 0), (n + m, 1));
+        z_view_mut += z_mat.view_mut((0, 0), (n + m, 1));
 
         self.initialized = true;
     }
@@ -150,20 +178,15 @@ impl Netlist {
 
         // Dimensions must be N+MxN+M, where N is #nodes and M is #ind v sources
         let n = self.num_nodes();
-        let m = self.num_iv_sources();
+        let m = self.num_aux_variables();
 
-        // TODO: change from inversion to LU/Gauss elimination
-        let a_inv = self
-            .a_mat
-            .clone()
-            .try_inverse()
-            .expect("Could not invert the A Matrix!");
-        let a_inv_view = a_inv.view((0, 0), (n + m, n + m));
-        let z_mat_view = self.z_mat.view((0, 0), (n + m, 1));
-        let x_mat = a_inv_view * z_mat_view;
-
+        // Rely on LU factorization to solve these systems
+        let lu = self.a_mat.clone().full_piv_lu();
+        let result = lu
+            .solve(&self.z_mat)
+            .expect("Could not solve LU Factorization");
         let mut x_mat_view = self.x_mat.view_mut((0, 0), (n + m, 1));
-        x_mat_view += x_mat;
+        x_mat_view += result;
         self.x_mat_valid = true;
     }
 
@@ -184,11 +207,15 @@ impl Netlist {
                     nodeset.insert(is.source_node);
                     nodeset.insert(is.sink_node);
                 }
-                Component::VCCurrentSource(vccs) => {
-                    nodeset.insert(vccs.source_node);
-                    nodeset.insert(vccs.sink_node);
-                    nodeset.insert(vccs.source_sensing_node);
-                    nodeset.insert(vccs.sink_sensing_node);
+                Component::VCCurrentSource(depsrc) => {
+                    nodeset.insert(depsrc.source_node);
+                    nodeset.insert(depsrc.sink_node);
+                    nodeset.insert(depsrc.source_sensing_node);
+                    nodeset.insert(depsrc.sink_sensing_node);
+                }
+                Component::CCCurrentSource(depsrc) => {
+                    nodeset.insert(depsrc.source_node);
+                    nodeset.insert(depsrc.sink_node);
                 }
             }
         }
@@ -197,15 +224,21 @@ impl Netlist {
         nodeset.len()
     }
 
-    pub fn num_iv_sources(&self) -> usize {
-        let mut num_iv_sources = 0usize;
+    pub fn num_aux_variables(&self) -> usize {
+        let mut num_aux_variables = 0usize;
         for component in &self.component_list {
-            if let Component::IVoltageSource(_) = component {
-                num_iv_sources += 1;
+            match component {
+                Component::IVoltageSource(_) => {
+                    num_aux_variables += 1;
+                }
+                Component::ICurrentSource(_)
+                | Component::Resistor(_)
+                | Component::VCCurrentSource(_)
+                | Component::CCCurrentSource(_) => {}
             }
         }
 
-        num_iv_sources
+        num_aux_variables
     }
 
     pub fn get_node_voltages(&self) -> Option<DMatrix<f64>> {
@@ -224,6 +257,18 @@ impl Netlist {
             )
         } else {
             None
+        }
+    }
+
+    pub fn dump_a_mat(&self) {
+        if self.initialized {
+            for row_num in 0..self.a_mat.nrows() {
+                print!("Row {:4}: ", row_num);
+                for col_num in 0..self.a_mat.ncols() {
+                    print!("\t{:+02.06} |", self.a_mat[(row_num, col_num)]);
+                }
+                println!();
+            }
         }
     }
 }

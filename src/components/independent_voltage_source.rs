@@ -35,7 +35,24 @@ impl IVoltageSource {
             ret_vec.push(Stamp(self.positive_node as _, self.source_num as _, 1.0));
         }
         if self.negative_node != 0 {
-            ret_vec.push(Stamp(self.negative_node as _, self.source_num as _, 1.0));
+            ret_vec.push(Stamp(self.negative_node as _, self.source_num as _, -1.0));
+        }
+
+        ret_vec
+    }
+
+    pub fn get_cmat_stamps(&self) -> Vec<Stamp> {
+        // The C matrix is an N×M matrix with only 0, 1 and -1 elements. Each location in the matrix
+        // corresponds to a particular voltage source (first dimension) or a node (second dimension). If the
+        // positive terminal of the ith voltage source is connected to node k, then the element (i, k) in the
+        // B matrix is a 1. If the negative terminal of the ith voltage source is connected to node k, then
+        //the element (i, k) in the C matrix is a -1. Otherwise, elements of the C matrix are zero.
+        let mut ret_vec: Vec<Stamp> = vec![];
+        if self.positive_node != 0 {
+            ret_vec.push(Stamp(self.source_num as _, self.positive_node as _, 1.0));
+        }
+        if self.negative_node != 0 {
+            ret_vec.push(Stamp(self.source_num as _, self.negative_node as _, -1.0));
         }
 
         ret_vec
