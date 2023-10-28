@@ -1,4 +1,5 @@
 pub mod cc_current_source;
+pub mod cc_voltage_source;
 pub mod independent_current_source;
 pub mod independent_voltage_source;
 pub mod resistor;
@@ -14,6 +15,7 @@ pub enum Component {
     ICurrentSource(independent_current_source::ICurrentSource),
     VCCurrentSource(vc_current_source::VCCurrentSource),
     CCCurrentSource(cc_current_source::CCCurrentSource),
+    CCVoltageSource(cc_voltage_source::CCVoltageSource),
 }
 
 impl Component {
@@ -24,6 +26,7 @@ impl Component {
             Component::ICurrentSource(is) => is.is_linear(),
             Component::VCCurrentSource(vccs) => vccs.is_linear(),
             Component::CCCurrentSource(cccs) => cccs.is_linear(),
+            Component::CCVoltageSource(ccvs) => ccvs.is_linear(),
         }
     }
 }

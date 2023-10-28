@@ -58,14 +58,11 @@ impl Netlist {
         for component in &self.component_list {
             let stamps = match component {
                 Component::Resistor(res) => res.get_gmat_stamps(),
-                Component::ICurrentSource(_is) => {
-                    vec![]
-                }
                 Component::VCCurrentSource(vccs) => vccs.get_gmat_stamps(),
-                Component::IVoltageSource(_vs) => {
-                    vec![]
-                }
-                Component::CCCurrentSource(_) => {
+                Component::CCVoltageSource(_ccvs) => todo!(),
+                Component::IVoltageSource(_)
+                | Component::ICurrentSource(_)
+                | Component::CCCurrentSource(_) => {
                     vec![]
                 }
             };
@@ -89,6 +86,7 @@ impl Netlist {
             let stamps = match component {
                 Component::IVoltageSource(vs) => vs.get_bmat_stamps(),
                 Component::CCCurrentSource(cccs) => cccs.get_bmat_stamps(),
+                Component::CCVoltageSource(_ccvs) => todo!(),
                 Component::Resistor(_)
                 | Component::ICurrentSource(_)
                 | Component::VCCurrentSource(_) => vec![],
@@ -115,6 +113,7 @@ impl Netlist {
             let stamps = match component {
                 Component::IVoltageSource(vs) => vs.get_cmat_stamps(),
                 Component::CCCurrentSource(cccs) => cccs.get_cmat_stamps(),
+                Component::CCVoltageSource(_ccvs) => todo!(),
                 Component::Resistor(_)
                 | Component::ICurrentSource(_)
                 | Component::VCCurrentSource(_) => vec![],
@@ -152,9 +151,10 @@ impl Netlist {
                 Component::ICurrentSource(is) => {
                     i_stamps.append(&mut is.get_zmat_stamps());
                 }
-                Component::Resistor(_) => {}
-                Component::VCCurrentSource(_) => {}
-                Component::CCCurrentSource(_) => {}
+                Component::CCVoltageSource(_ccvs) => todo!(),
+                Component::Resistor(_)
+                | Component::VCCurrentSource(_)
+                | Component::CCCurrentSource(_) => {}
             }
         }
         for Stamp(r, c, val) in i_stamps {
@@ -217,6 +217,9 @@ impl Netlist {
                     nodeset.insert(depsrc.source_node);
                     nodeset.insert(depsrc.sink_node);
                 }
+                Component::CCVoltageSource(_depsrc) => {
+                    todo!()
+                }
             }
         }
         // MNA A matrix does not include ground node as a node!
@@ -230,6 +233,9 @@ impl Netlist {
             match component {
                 Component::IVoltageSource(_) => {
                     num_aux_variables += 1;
+                }
+                Component::CCVoltageSource(_) => {
+                    todo!()
                 }
                 Component::ICurrentSource(_)
                 | Component::Resistor(_)
