@@ -65,9 +65,13 @@ impl VCCurrentSource {
         }
         retvec
     }
+    
+    pub fn get_dmat_stamps(&self) -> Vec<Stamp> {
+        vec![]
+    }
 
     pub fn get_zmat_stamps(&self) -> Vec<Stamp> {
-        todo!();
+        vec![]
     }
 }
 

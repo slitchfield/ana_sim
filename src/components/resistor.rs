@@ -55,6 +55,10 @@ impl Resistor {
         ret_vec
     }
 
+    pub fn get_dmat_stamps(&self) -> Vec<Stamp> {
+        vec![]
+    }
+
     pub fn is_linear(&self) -> bool {
         true
     }

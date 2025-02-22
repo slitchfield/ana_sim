@@ -51,6 +51,10 @@ impl CCCurrentSource {
     pub fn get_cmat_stamps(&self) -> Vec<Stamp> {
         vec![]
     }
+    
+    pub fn get_dmat_stamps(&self) -> Vec<Stamp> {
+        vec![]
+    }
 
     pub fn get_zmat_stamps(&self) -> Vec<Stamp> {
         // CCCS does not require any additional stamps for rhs

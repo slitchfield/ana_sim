@@ -58,6 +58,10 @@ impl IVoltageSource {
         ret_vec
     }
 
+    pub fn get_dmat_stamps(&self) -> Vec<Stamp> {
+        vec![]
+    }
+
     pub fn get_zmat_stamps(&self) -> Vec<Stamp> {
         // The z matrix is 1×(M+N) (N is the number of nodes, and M is the number of independent
         //    voltage sources) and:

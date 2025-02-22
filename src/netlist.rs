@@ -59,7 +59,7 @@ impl Netlist {
             let stamps = match component {
                 Component::Resistor(res) => res.get_gmat_stamps(),
                 Component::VCCurrentSource(vccs) => vccs.get_gmat_stamps(),
-                Component::CCVoltageSource(_ccvs) => todo!(),
+                Component::CCVoltageSource(ccvs) => ccvs.get_gmat_stamps(),
                 Component::IVoltageSource(_)
                 | Component::ICurrentSource(_)
                 | Component::CCCurrentSource(_) => {
@@ -86,7 +86,7 @@ impl Netlist {
             let stamps = match component {
                 Component::IVoltageSource(vs) => vs.get_bmat_stamps(),
                 Component::CCCurrentSource(cccs) => cccs.get_bmat_stamps(),
-                Component::CCVoltageSource(_ccvs) => todo!(),
+                Component::CCVoltageSource(ccvs) => ccvs.get_bmat_stamps(),
                 Component::Resistor(_)
                 | Component::ICurrentSource(_)
                 | Component::VCCurrentSource(_) => vec![],
@@ -113,7 +113,7 @@ impl Netlist {
             let stamps = match component {
                 Component::IVoltageSource(vs) => vs.get_cmat_stamps(),
                 Component::CCCurrentSource(cccs) => cccs.get_cmat_stamps(),
-                Component::CCVoltageSource(_ccvs) => todo!(),
+                Component::CCVoltageSource(ccvs) => ccvs.get_cmat_stamps(),
                 Component::Resistor(_)
                 | Component::ICurrentSource(_)
                 | Component::VCCurrentSource(_) => vec![],
@@ -130,6 +130,26 @@ impl Netlist {
 
         // Construct D matrix from dependent sources
         // TODO: handle dependent sources
+        let mut d_mat = DMatrix::<f64>::from_element(m, m, 0.0);
+        eprintln!(
+            "Allocated dmat with shape({}, {})", d_mat.nrows(), d_mat.ncols()
+        );
+        for component in &self.component_list {
+            let stamps = match component {
+                Component::IVoltageSource(vs) => vs.get_dmat_stamps(),
+                Component::ICurrentSource(cs) => cs.get_dmat_stamps(),
+                Component::CCCurrentSource(cccs) => cccs.get_dmat_stamps(),
+                Component::VCCurrentSource(vccs) => vccs.get_dmat_stamps(),
+                Component::CCVoltageSource(ccvs) => ccvs.get_dmat_stamps(),
+                Component::Resistor(r) => r.get_dmat_stamps(),
+            };
+
+            for Stamp(r, c, val) in stamps {
+                eprintln!("Got dmat stamp: {:?}", Stamp(r, c, val));
+                let mut cell = d_mat.view_mut((r-1, c-1), (1, 1));
+                cell[(0, 0)] += val;
+            }
+        }
 
         // Construct Z matrix from independent sources
         // The z matrix holds our independent voltage and current sources and will be developed as the
@@ -151,10 +171,10 @@ impl Netlist {
                 Component::ICurrentSource(is) => {
                     i_stamps.append(&mut is.get_zmat_stamps());
                 }
-                Component::CCVoltageSource(_ccvs) => todo!(),
                 Component::Resistor(_)
                 | Component::VCCurrentSource(_)
-                | Component::CCCurrentSource(_) => {}
+                | Component::CCCurrentSource(_) 
+                | Component::CCVoltageSource(_) => {}
             }
         }
         for Stamp(r, c, val) in i_stamps {
@@ -217,8 +237,9 @@ impl Netlist {
                     nodeset.insert(depsrc.source_node);
                     nodeset.insert(depsrc.sink_node);
                 }
-                Component::CCVoltageSource(_depsrc) => {
-                    todo!()
+                Component::CCVoltageSource(depsrc) => {
+                    nodeset.insert(depsrc.source_node);
+                    nodeset.insert(depsrc.sink_node);
                 }
             }
         }
@@ -235,7 +256,7 @@ impl Netlist {
                     num_aux_variables += 1;
                 }
                 Component::CCVoltageSource(_) => {
-                    todo!()
+                    num_aux_variables += 1;
                 }
                 Component::ICurrentSource(_)
                 | Component::Resistor(_)
