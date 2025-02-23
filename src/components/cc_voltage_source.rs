@@ -8,8 +8,8 @@ pub struct CCVoltageSource {
     pub dep_source_num: u64,
     pub source_sensing_node: u64,
     pub sink_sensing_node: u64,
-    pub source_node: u64,
-    pub sink_node: u64,
+    pub positive_node: u64, // pub source_node: u64,
+    pub negative_node: u64, //pub sink_node: u64,
     gain: f64,
 }
 
@@ -20,8 +20,8 @@ impl CCVoltageSource {
         dep_source_num: u64,
         source_sensing_node: u64,
         sink_sensing_node: u64,
-        source_node: u64,
-        sink_node: u64,
+        positive_node: u64, //source_node: u64,
+        negative_node: u64, //sink_node: u64,
         gain: f64,
     ) -> Self {
         // TODO: check that sensing/output nodes don't overlap illegally
@@ -30,8 +30,8 @@ impl CCVoltageSource {
             dep_source_num,
             source_sensing_node,
             sink_sensing_node,
-            source_node,
-            sink_node,
+            positive_node,
+            negative_node,
             gain,
         }
     }
@@ -48,11 +48,19 @@ impl DCComponent for CCVoltageSource {
 
     fn get_bmat_stamps(&self) -> Vec<Stamp> {
         let mut retvec: Vec<Stamp> = vec![];
-        if self.source_node != 0 {
-            retvec.push(Stamp(self.source_node as _, self.source_num as _, 1.0 as _));
+        if self.positive_node != 0 {
+            retvec.push(Stamp(
+                self.positive_node as _,
+                self.source_num as _,
+                1.0 as _,
+            ));
         }
-        if self.sink_node != 0 {
-            retvec.push(Stamp(self.sink_node as _, self.source_num as _, -1.0 as _));
+        if self.negative_node != 0 {
+            retvec.push(Stamp(
+                self.negative_node as _,
+                self.source_num as _,
+                -1.0 as _,
+            ));
         }
         retvec
     }
@@ -60,11 +68,19 @@ impl DCComponent for CCVoltageSource {
     fn get_cmat_stamps(&self) -> Vec<Stamp> {
         let mut retvec: Vec<Stamp> = vec![];
 
-        if self.source_node != 0 {
-            retvec.push(Stamp(self.source_num as _, self.source_node as _, 1.0 as _));
+        if self.positive_node != 0 {
+            retvec.push(Stamp(
+                self.source_num as _,
+                self.positive_node as _,
+                1.0 as _,
+            ));
         }
-        if self.sink_node != 0 {
-            retvec.push(Stamp(self.source_num as _, self.sink_node as _, -1.0 as _))
+        if self.negative_node != 0 {
+            retvec.push(Stamp(
+                self.source_num as _,
+                self.negative_node as _,
+                -1.0 as _,
+            ))
         }
         retvec
     }
@@ -100,16 +116,14 @@ mod tests {
 
         let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 2.0);
         let v2 = independent_voltage_source::IVoltageSource::new(2, 2, 1, 0.0);
-        let r1 = resistor::Resistor::new(1, 2, 1.0);
-        let r2 = resistor::Resistor::new(0, 2, 1.0);
-        let ccvs = cc_voltage_source::CCVoltageSource::new(3, 2, 1, 2, 3, 0, -1.0);
-        let r3 = resistor::Resistor::new(3, 0, 2.0);
+        let r1 = resistor::Resistor::new(2, 3, 1.0);
+        let r2 = resistor::Resistor::new(0, 3, 1.0);
+        let ccvs = cc_voltage_source::CCVoltageSource::new(3, 2, 1, 2, 3, 0, 1.0);
 
         net.add_component(Component::IVoltageSource(v1));
         net.add_component(Component::IVoltageSource(v2));
         net.add_component(Component::Resistor(r1));
         net.add_component(Component::Resistor(r2));
-        net.add_component(Component::Resistor(r3));
         net.add_component(Component::CCVoltageSource(ccvs));
 
         net.initialize_dc_mna();
@@ -120,8 +134,8 @@ mod tests {
             .get_node_voltages()
             .expect("voltages should be valid here");
         assert_float_relative_eq!(node_voltages.view((1 - 1, 0), (1, 1))[(0, 0)], 2.0f64);
-        assert_float_relative_eq!(node_voltages.view((2 - 1, 0), (1, 1))[(0, 0)], 1.0f64);
-        assert_float_relative_eq!(node_voltages.view((3 - 1, 0), (1, 1))[(0, 0)], 2.0f64);
+        assert_float_relative_eq!(node_voltages.view((2 - 1, 0), (1, 1))[(0, 0)], 2.0f64);
+        assert_float_relative_eq!(node_voltages.view((3 - 1, 0), (1, 1))[(0, 0)], 1.0f64);
     }
 
     #[test]

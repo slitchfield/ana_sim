@@ -120,6 +120,8 @@ impl Netlist {
                 cell[(0, 0)] += val;
             }
         }
+        let mut d_view = self.a_mat.view_mut((n, n), (m, m));
+        d_view += d_mat.view_mut((0, 0), (m, m));
 
         // Construct Z matrix from independent sources
         // The z matrix holds our independent voltage and current sources and will be developed as the
@@ -170,6 +172,9 @@ impl Netlist {
         let n = self.num_nodes();
         let m = self.num_aux_variables();
 
+        eprintln!("A:\n{:.1}", self.a_mat);
+        eprintln!("z:\n{:.1}", self.z_mat);
+
         // Rely on LU factorization to solve these systems
         let lu = self.a_mat.clone().full_piv_lu();
         let result = lu
@@ -208,8 +213,8 @@ impl Netlist {
                     nodeset.insert(depsrc.sink_node);
                 }
                 Component::CCVoltageSource(depsrc) => {
-                    nodeset.insert(depsrc.source_node);
-                    nodeset.insert(depsrc.sink_node);
+                    nodeset.insert(depsrc.positive_node);
+                    nodeset.insert(depsrc.negative_node);
                 }
             }
         }
