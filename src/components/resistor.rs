@@ -1,4 +1,5 @@
 use crate::components::Stamp;
+use crate::DCComponent;
 
 #[allow(dead_code)]
 #[derive(Default, Debug)]
@@ -19,7 +20,13 @@ impl Resistor {
         }
     }
 
-    pub fn get_gmat_stamps(&self) -> Vec<Stamp> {
+    pub fn is_linear(&self) -> bool {
+        true
+    }
+}
+
+impl DCComponent for Resistor {
+    fn get_gmat_stamps(&self) -> Vec<Stamp> {
         let mut ret_vec: Vec<Stamp> = vec![];
 
         // Calculate diagonal elements as 1 / resistance
@@ -55,12 +62,20 @@ impl Resistor {
         ret_vec
     }
 
-    pub fn get_dmat_stamps(&self) -> Vec<Stamp> {
+    fn get_bmat_stamps(&self) -> Vec<Stamp> {
         vec![]
     }
 
-    pub fn is_linear(&self) -> bool {
-        true
+    fn get_cmat_stamps(&self) -> Vec<Stamp> {
+        vec![]
+    }
+
+    fn get_dmat_stamps(&self) -> Vec<Stamp> {
+        vec![]
+    }
+
+    fn get_zmat_stamps(&self) -> Vec<Stamp> {
+        vec![]
     }
 }
 

@@ -1,4 +1,5 @@
 use super::Stamp;
+use crate::DCComponent;
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -23,8 +24,14 @@ impl IVoltageSource {
     pub fn is_linear(&self) -> bool {
         true
     }
+}
 
-    pub fn get_bmat_stamps(&self) -> Vec<Stamp> {
+impl DCComponent for IVoltageSource {
+    fn get_gmat_stamps(&self) -> Vec<Stamp> {
+        vec![]
+    }
+
+    fn get_bmat_stamps(&self) -> Vec<Stamp> {
         // The B matrix is an N×M matrix with only 0, 1 and -1 elements. Each location in the matrix
         // corresponds to a particular voltage source (first dimension) or a node (second dimension). If the
         // positive terminal of the ith voltage source is connected to node k, then the element (k,i) in the
@@ -41,7 +48,7 @@ impl IVoltageSource {
         ret_vec
     }
 
-    pub fn get_cmat_stamps(&self) -> Vec<Stamp> {
+    fn get_cmat_stamps(&self) -> Vec<Stamp> {
         // The C matrix is an N×M matrix with only 0, 1 and -1 elements. Each location in the matrix
         // corresponds to a particular voltage source (first dimension) or a node (second dimension). If the
         // positive terminal of the ith voltage source is connected to node k, then the element (i, k) in the
@@ -58,11 +65,11 @@ impl IVoltageSource {
         ret_vec
     }
 
-    pub fn get_dmat_stamps(&self) -> Vec<Stamp> {
+    fn get_dmat_stamps(&self) -> Vec<Stamp> {
         vec![]
     }
 
-    pub fn get_zmat_stamps(&self) -> Vec<Stamp> {
+    fn get_zmat_stamps(&self) -> Vec<Stamp> {
         // The z matrix is 1×(M+N) (N is the number of nodes, and M is the number of independent
         //    voltage sources) and:
         //    • the i matrix is 1×N and contains the sum of the currents through the passive elements into

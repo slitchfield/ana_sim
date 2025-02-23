@@ -1,4 +1,5 @@
 use super::Stamp;
+use crate::DCComponent;
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -38,67 +39,48 @@ impl CCVoltageSource {
     pub fn is_linear(&self) -> bool {
         true
     }
+}
 
-    pub fn get_gmat_stamps(&self) -> Vec<Stamp> {
+impl DCComponent for CCVoltageSource {
+    fn get_gmat_stamps(&self) -> Vec<Stamp> {
         vec![]
     }
 
-    pub fn get_bmat_stamps(&self) -> Vec<Stamp> {
+    fn get_bmat_stamps(&self) -> Vec<Stamp> {
         let mut retvec: Vec<Stamp> = vec![];
         if self.source_node != 0 {
-            retvec.push(Stamp(
-                self.source_node as _,
-                self.source_num as _,
-                1.0 as _,
-            ));
+            retvec.push(Stamp(self.source_node as _, self.source_num as _, 1.0 as _));
         }
         if self.sink_node != 0 {
-            retvec.push(Stamp(
-                self.sink_node as _,
-                self.source_num as _,
-                -1.0 as _,
-            ));
+            retvec.push(Stamp(self.sink_node as _, self.source_num as _, -1.0 as _));
         }
         retvec
     }
 
-    pub fn get_cmat_stamps(&self) -> Vec<Stamp> {
+    fn get_cmat_stamps(&self) -> Vec<Stamp> {
         let mut retvec: Vec<Stamp> = vec![];
 
         if self.source_node != 0 {
-            retvec.push(Stamp(
-                self.source_num as _,
-                self.source_node as _,
-                1.0 as _
-            ));
+            retvec.push(Stamp(self.source_num as _, self.source_node as _, 1.0 as _));
         }
         if self.sink_node != 0 {
-            retvec.push(Stamp(
-                self.source_num as _,
-                self.sink_node as _,
-                -1.0 as _,
-            ))
+            retvec.push(Stamp(self.source_num as _, self.sink_node as _, -1.0 as _))
         }
         retvec
     }
 
-    pub fn get_dmat_stamps(&self) -> Vec<Stamp> {
-        let mut retvec: Vec<Stamp> = vec![];
-
-        retvec.push(Stamp(
+    fn get_dmat_stamps(&self) -> Vec<Stamp> {
+        vec![Stamp(
             self.source_num as _,
             self.dep_source_num as _,
-            self.gain
-        ));
-
-        retvec
+            self.gain,
+        )]
     }
 
-    pub fn get_zmat_stamps(&self) -> Vec<Stamp> {
+    fn get_zmat_stamps(&self) -> Vec<Stamp> {
         vec![]
     }
 }
-
 #[allow(unused_imports)]
 mod tests {
     use super::*;
@@ -120,7 +102,7 @@ mod tests {
         let v2 = independent_voltage_source::IVoltageSource::new(2, 2, 1, 0.0);
         let r1 = resistor::Resistor::new(1, 2, 1.0);
         let r2 = resistor::Resistor::new(0, 2, 1.0);
-        let ccvs = cc_voltage_source::CCVoltageSource::new(3, 2,  1, 2, 3, 0, -1.0);
+        let ccvs = cc_voltage_source::CCVoltageSource::new(3, 2, 1, 2, 3, 0, -1.0);
         let r3 = resistor::Resistor::new(3, 0, 2.0);
 
         net.add_component(Component::IVoltageSource(v1));

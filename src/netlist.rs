@@ -1,5 +1,6 @@
 use crate::components::Component;
 use crate::components::Stamp;
+use crate::DCComponent;
 use std::collections::HashSet;
 
 use nalgebra::base::DMatrix;
@@ -56,16 +57,7 @@ impl Netlist {
             g_mat.ncols()
         );
         for component in &self.component_list {
-            let stamps = match component {
-                Component::Resistor(res) => res.get_gmat_stamps(),
-                Component::VCCurrentSource(vccs) => vccs.get_gmat_stamps(),
-                Component::CCVoltageSource(ccvs) => ccvs.get_gmat_stamps(),
-                Component::IVoltageSource(_)
-                | Component::ICurrentSource(_)
-                | Component::CCCurrentSource(_) => {
-                    vec![]
-                }
-            };
+            let stamps = component.get_gmat_stamps();
             for Stamp(r, c, val) in stamps {
                 eprintln!("Got gmat stamp: {:?}", Stamp(r, c, val));
                 let mut cell = g_mat.view_mut((r - 1, c - 1), (1, 1));
@@ -83,15 +75,7 @@ impl Netlist {
             b_mat.ncols()
         );
         for component in &self.component_list {
-            let stamps = match component {
-                Component::IVoltageSource(vs) => vs.get_bmat_stamps(),
-                Component::CCCurrentSource(cccs) => cccs.get_bmat_stamps(),
-                Component::CCVoltageSource(ccvs) => ccvs.get_bmat_stamps(),
-                Component::Resistor(_)
-                | Component::ICurrentSource(_)
-                | Component::VCCurrentSource(_) => vec![],
-            };
-
+            let stamps = component.get_bmat_stamps();
             for Stamp(r, c, val) in stamps {
                 eprintln!("Got bmat stamp: {:?}", Stamp(r, c, val));
                 let mut cell = b_mat.view_mut((r - 1, c - 1), (1, 1));
@@ -110,15 +94,7 @@ impl Netlist {
             c_mat.ncols()
         );
         for component in &self.component_list {
-            let stamps = match component {
-                Component::IVoltageSource(vs) => vs.get_cmat_stamps(),
-                Component::CCCurrentSource(cccs) => cccs.get_cmat_stamps(),
-                Component::CCVoltageSource(ccvs) => ccvs.get_cmat_stamps(),
-                Component::Resistor(_)
-                | Component::ICurrentSource(_)
-                | Component::VCCurrentSource(_) => vec![],
-            };
-
+            let stamps = component.get_cmat_stamps();
             for Stamp(r, c, val) in stamps {
                 eprintln!("Got cmat stamp: {:?}", Stamp(r, c, val));
                 let mut cell = c_mat.view_mut((r - 1, c - 1), (1, 1));
@@ -132,21 +108,15 @@ impl Netlist {
         // TODO: handle dependent sources
         let mut d_mat = DMatrix::<f64>::from_element(m, m, 0.0);
         eprintln!(
-            "Allocated dmat with shape({}, {})", d_mat.nrows(), d_mat.ncols()
+            "Allocated dmat with shape({}, {})",
+            d_mat.nrows(),
+            d_mat.ncols()
         );
         for component in &self.component_list {
-            let stamps = match component {
-                Component::IVoltageSource(vs) => vs.get_dmat_stamps(),
-                Component::ICurrentSource(cs) => cs.get_dmat_stamps(),
-                Component::CCCurrentSource(cccs) => cccs.get_dmat_stamps(),
-                Component::VCCurrentSource(vccs) => vccs.get_dmat_stamps(),
-                Component::CCVoltageSource(ccvs) => ccvs.get_dmat_stamps(),
-                Component::Resistor(r) => r.get_dmat_stamps(),
-            };
-
+            let stamps = component.get_dmat_stamps();
             for Stamp(r, c, val) in stamps {
                 eprintln!("Got dmat stamp: {:?}", Stamp(r, c, val));
-                let mut cell = d_mat.view_mut((r-1, c-1), (1, 1));
+                let mut cell = d_mat.view_mut((r - 1, c - 1), (1, 1));
                 cell[(0, 0)] += val;
             }
         }
@@ -173,7 +143,7 @@ impl Netlist {
                 }
                 Component::Resistor(_)
                 | Component::VCCurrentSource(_)
-                | Component::CCCurrentSource(_) 
+                | Component::CCCurrentSource(_)
                 | Component::CCVoltageSource(_) => {}
             }
         }

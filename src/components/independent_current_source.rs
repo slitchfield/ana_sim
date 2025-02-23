@@ -1,4 +1,5 @@
 use super::Stamp;
+use crate::DCComponent;
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -21,12 +22,26 @@ impl ICurrentSource {
     pub fn is_linear(&self) -> bool {
         true
     }
-    
-    pub fn get_dmat_stamps(&self) -> Vec<Stamp> {
+}
+
+impl DCComponent for ICurrentSource {
+    fn get_gmat_stamps(&self) -> Vec<Stamp> {
         vec![]
     }
 
-    pub fn get_zmat_stamps(&self) -> Vec<Stamp> {
+    fn get_bmat_stamps(&self) -> Vec<Stamp> {
+        vec![]
+    }
+
+    fn get_cmat_stamps(&self) -> Vec<Stamp> {
+        vec![]
+    }
+
+    fn get_dmat_stamps(&self) -> Vec<Stamp> {
+        vec![]
+    }
+
+    fn get_zmat_stamps(&self) -> Vec<Stamp> {
         // The z matrix is 1×(M+N) (N is the number of nodes, and M is the number of independent
         //   voltage sources) and:
         //    • the i matrix is 1×N and contains the sum of the currents through the passive elements into

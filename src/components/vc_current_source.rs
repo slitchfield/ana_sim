@@ -1,3 +1,5 @@
+use crate::DCComponent;
+
 use super::Stamp;
 
 #[allow(dead_code)]
@@ -32,8 +34,10 @@ impl VCCurrentSource {
     pub fn is_linear(&self) -> bool {
         true
     }
+}
 
-    pub fn get_gmat_stamps(&self) -> Vec<Stamp> {
+impl DCComponent for VCCurrentSource {
+    fn get_gmat_stamps(&self) -> Vec<Stamp> {
         let mut retvec: Vec<Stamp> = vec![];
         if self.source_node != 0 && self.source_sensing_node != 0 {
             retvec.push(Stamp(
@@ -65,12 +69,20 @@ impl VCCurrentSource {
         }
         retvec
     }
-    
-    pub fn get_dmat_stamps(&self) -> Vec<Stamp> {
+
+    fn get_bmat_stamps(&self) -> Vec<Stamp> {
         vec![]
     }
 
-    pub fn get_zmat_stamps(&self) -> Vec<Stamp> {
+    fn get_cmat_stamps(&self) -> Vec<Stamp> {
+        vec![]
+    }
+
+    fn get_dmat_stamps(&self) -> Vec<Stamp> {
+        vec![]
+    }
+
+    fn get_zmat_stamps(&self) -> Vec<Stamp> {
         vec![]
     }
 }
