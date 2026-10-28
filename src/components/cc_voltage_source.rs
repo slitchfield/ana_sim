@@ -126,7 +126,7 @@ mod tests {
         net.add_component(Component::Resistor(r2));
         net.add_component(Component::CCVoltageSource(ccvs));
 
-        net.initialize_dc_mna();
+        net.initialize_dc_mna().unwrap();
 
         net.solve_dc_mna();
 
@@ -158,7 +158,7 @@ mod tests {
         net.add_component(Component::Resistor(r4));
         net.add_component(Component::CCVoltageSource(ccvs));
 
-        net.initialize_dc_mna();
+        net.initialize_dc_mna().unwrap();
 
         net.solve_dc_mna();
 

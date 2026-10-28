@@ -95,7 +95,7 @@ mod tests {
         net.add_component(Component::Resistor(r2));
         net.add_component(Component::CCCurrentSource(cccs));
 
-        net.initialize_dc_mna();
+        net.initialize_dc_mna().unwrap();
 
         net.solve_dc_mna();
 

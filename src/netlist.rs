@@ -5,6 +5,12 @@ use std::collections::HashSet;
 
 use nalgebra::base::DMatrix;
 
+#[derive(Debug, PartialEq)]
+pub enum NetlistError {
+    NoGroundNode,
+    NonContiguousNodes { missing: Vec<u64> },
+}
+
 #[allow(dead_code)]
 pub struct Netlist {
     component_list: Vec<Component>,
@@ -38,7 +44,9 @@ impl Netlist {
         self.component_list.iter().all(|c| c.is_linear())
     }
 
-    pub fn initialize_dc_mna(&mut self) {
+    pub fn initialize_dc_mna(&mut self) -> Result<(), NetlistError> {
+        self.validate_nodes()?;
+
         // Construct A matrix
         // Dimensions must be N+MxN+M, where N is #nodes and M is #ind v sources
         let n = self.num_nodes();
@@ -158,6 +166,7 @@ impl Netlist {
         }
 
         self.initialized = true;
+        Ok(())
     }
 
     pub fn solve_dc_mna(&mut self) {
@@ -181,7 +190,7 @@ impl Netlist {
         self.x_mat_valid = true;
     }
 
-    pub fn num_nodes(&self) -> usize {
+    fn node_set(&self) -> HashSet<u64> {
         let mut nodeset: HashSet<u64> = HashSet::<u64>::new();
 
         for component in &self.component_list {
@@ -214,9 +223,29 @@ impl Netlist {
                 }
             }
         }
+        nodeset
+    }
+
+    pub fn num_nodes(&self) -> usize {
+        let mut nodeset = self.node_set();
         // MNA A matrix does not include ground node as a node!
         nodeset.remove(&0u64);
         nodeset.len()
+    }
+
+    fn validate_nodes(&self) -> Result<(), NetlistError> {
+        let mut nodeset = self.node_set();
+        if !nodeset.remove(&0u64) {
+            return Err(NetlistError::NoGroundNode);
+        }
+
+        // n distinct positive node IDs are exactly 1..=n iff none exceeds n
+        let max = nodeset.iter().copied().max().unwrap_or(0);
+        if max as usize == nodeset.len() {
+            return Ok(());
+        }
+        let missing = (1..=max).filter(|k| !nodeset.contains(k)).collect();
+        Err(NetlistError::NonContiguousNodes { missing })
     }
 
     pub fn num_aux_variables(&self) -> usize {
@@ -329,7 +358,7 @@ mod tests {
         assert!(net.z_mat.ncols() == 0);
         assert!(net.z_mat.nrows() == 0);
 
-        net.initialize_dc_mna();
+        net.initialize_dc_mna().unwrap();
 
         // a_mat should now be n+m x n+m, i.e. (2 node + 1 indep vsource)
         assert!(net.a_mat.ncols() == 3);
@@ -353,7 +382,7 @@ mod tests {
         net.add_component(Component::Resistor(r2));
         net.add_component(Component::ICurrentSource(i1));
 
-        net.initialize_dc_mna();
+        net.initialize_dc_mna().unwrap();
 
         assert_float_relative_eq!(net.a_mat.view((0, 0), (1, 1))[(0, 0)], 0.2f64);
         assert_float_relative_eq!(net.a_mat.view((0, 1), (1, 1))[(0, 0)], -0.2f64);
@@ -381,7 +410,7 @@ mod tests {
         net.add_component(Component::Resistor(r2));
         net.add_component(Component::ICurrentSource(i1));
 
-        net.initialize_dc_mna();
+        net.initialize_dc_mna().unwrap();
 
         net.solve_dc_mna();
 
@@ -404,7 +433,7 @@ mod tests {
         net.add_component(Component::Resistor(r2));
         net.add_component(Component::ICurrentSource(i1));
 
-        net.initialize_dc_mna();
+        net.initialize_dc_mna().unwrap();
 
         net.solve_dc_mna();
 
@@ -428,7 +457,7 @@ mod tests {
         net.add_component(Component::ICurrentSource(i2));
         net.add_component(Component::Resistor(r1));
 
-        net.initialize_dc_mna();
+        net.initialize_dc_mna().unwrap();
 
         assert_float_relative_eq!(net.z_mat[(0, 0)], 3.0f64);
 
@@ -453,7 +482,7 @@ mod tests {
         net.add_component(Component::ICurrentSource(i2));
         net.add_component(Component::Resistor(r1));
 
-        net.initialize_dc_mna();
+        net.initialize_dc_mna().unwrap();
 
         assert_float_relative_eq!(net.z_mat[(0, 0)], 2.0f64);
 
@@ -481,7 +510,7 @@ mod tests {
         net.add_component(Component::Resistor(r1));
         net.add_component(Component::Resistor(r2));
 
-        net.initialize_dc_mna();
+        net.initialize_dc_mna().unwrap();
 
         net.solve_dc_mna();
 
@@ -506,8 +535,8 @@ mod tests {
         net.add_component(Component::Resistor(r2));
         net.add_component(Component::ICurrentSource(i1));
 
-        net.initialize_dc_mna();
-        net.initialize_dc_mna();
+        net.initialize_dc_mna().unwrap();
+        net.initialize_dc_mna().unwrap();
 
         assert_float_relative_eq!(net.z_mat[(0, 0)], 0.0f64);
         assert_float_relative_eq!(net.z_mat[(1, 0)], 1.0f64);
@@ -528,7 +557,7 @@ mod tests {
         net.add_component(Component::Resistor(r2));
         net.add_component(Component::ICurrentSource(i1));
 
-        net.initialize_dc_mna();
+        net.initialize_dc_mna().unwrap();
 
         net.solve_dc_mna();
         net.solve_dc_mna();
@@ -536,5 +565,66 @@ mod tests {
         assert_float_relative_eq!(net.x_mat[(0, 0)], 1.0f64);
         assert_float_relative_eq!(net.x_mat[(1, 0)], 4.0f64);
         assert_float_relative_eq!(net.x_mat[(2, 0)], 0.6f64);
+    }
+
+    #[test]
+    fn validate_nodes_rejects_gap() {
+        let mut net = Netlist::new();
+
+        net.add_component(Component::Resistor(resistor::Resistor::new(1, 0, 1.0)));
+        net.add_component(Component::Resistor(resistor::Resistor::new(3, 0, 1.0)));
+
+        assert_eq!(
+            net.initialize_dc_mna(),
+            Err(NetlistError::NonContiguousNodes { missing: vec![2] })
+        );
+        assert!(!net.initialized);
+    }
+
+    #[test]
+    fn validate_nodes_rejects_numbering_from_two() {
+        let mut net = Netlist::new();
+
+        net.add_component(Component::Resistor(resistor::Resistor::new(2, 3, 1.0)));
+        net.add_component(Component::Resistor(resistor::Resistor::new(3, 0, 1.0)));
+
+        assert_eq!(
+            net.initialize_dc_mna(),
+            Err(NetlistError::NonContiguousNodes { missing: vec![1] })
+        );
+    }
+
+    #[test]
+    fn validate_nodes_reports_all_missing() {
+        let mut net = Netlist::new();
+
+        net.add_component(Component::Resistor(resistor::Resistor::new(2, 5, 1.0)));
+        net.add_component(Component::Resistor(resistor::Resistor::new(5, 0, 1.0)));
+
+        assert_eq!(
+            net.initialize_dc_mna(),
+            Err(NetlistError::NonContiguousNodes {
+                missing: vec![1, 3, 4]
+            })
+        );
+    }
+
+    #[test]
+    fn validate_nodes_rejects_missing_ground() {
+        let mut net = Netlist::new();
+
+        net.add_component(Component::Resistor(resistor::Resistor::new(1, 2, 1.0)));
+
+        assert_eq!(net.initialize_dc_mna(), Err(NetlistError::NoGroundNode));
+    }
+
+    #[test]
+    fn validate_nodes_accepts_contiguous() {
+        let mut net = Netlist::new();
+
+        net.add_component(Component::Resistor(resistor::Resistor::new(2, 1, 1.0)));
+        net.add_component(Component::Resistor(resistor::Resistor::new(1, 0, 1.0)));
+
+        assert_eq!(net.initialize_dc_mna(), Ok(()));
     }
 }
