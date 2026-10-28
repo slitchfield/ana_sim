@@ -26,7 +26,7 @@
 - [x] `Cargo.toml`: move `assert_float_eq` to `[dev-dependencies]`; rename `mylib`/`mybin`
 
 ## Tests
-- [ ] Extract a helper for the Qucs example circuit duplicated across netlist tests; merge the identical, assertion-free `adding_components` and `simple_vs_resistor_test`
+- [x] Extract a helper for the Qucs example circuit duplicated across netlist tests; merge the identical, assertion-free `adding_components` and `simple_vs_resistor_test`
 - [x] Add regression tests for the z-stamp accumulation and double-solve bugs
-- [ ] Add an ungrounded CCCS test
-- [ ] Add tests for the correctness guards above
+- [x] Add an ungrounded CCCS test
+- [x] Add tests for the correctness guards above

@@ -114,4 +114,37 @@ mod tests {
         assert_float_relative_eq!(node_voltages.view((2 - 1, 0), (1, 1))[(0, 0)], 0.0f64);
         assert_float_relative_eq!(node_voltages.view((3 - 1, 0), (1, 1))[(0, 0)], 1.0f64);
     }
+
+    #[test]
+    fn basic_function_ungrounded() {
+        let mut net = Netlist::new();
+
+        let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 2.0);
+        // 0V source senses the current from node 1 to node 2
+        let vsense = independent_voltage_source::IVoltageSource::new(2, 1, 2, 0.0);
+        let r1 = resistor::Resistor::new(2, 0, 1.0);
+        // Floating output: gain * j(vsense) flows from node 3 through the source into node 4
+        let cccs = cc_current_source::CCCurrentSource::new(2, 3, 4, 1.0);
+        let r3 = resistor::Resistor::new(3, 0, 1.0);
+        let r4 = resistor::Resistor::new(4, 0, 1.0);
+
+        net.add_component(Component::IVoltageSource(v1));
+        net.add_component(Component::IVoltageSource(vsense));
+        net.add_component(Component::Resistor(r1));
+        net.add_component(Component::CCCurrentSource(cccs));
+        net.add_component(Component::Resistor(r3));
+        net.add_component(Component::Resistor(r4));
+
+        net.initialize_dc_mna().unwrap();
+
+        net.solve_dc_mna().unwrap();
+
+        let node_voltages = net
+            .get_node_voltages()
+            .expect("voltages should be valid here");
+        assert_float_relative_eq!(node_voltages.view((1 - 1, 0), (1, 1))[(0, 0)], 2.0f64);
+        assert_float_relative_eq!(node_voltages.view((2 - 1, 0), (1, 1))[(0, 0)], 2.0f64);
+        assert_float_relative_eq!(node_voltages.view((3 - 1, 0), (1, 1))[(0, 0)], -2.0f64);
+        assert_float_relative_eq!(node_voltages.view((4 - 1, 0), (1, 1))[(0, 0)], 2.0f64);
+    }
 }

@@ -273,33 +273,9 @@ mod tests {
     use crate::components::Component;
     use assert_float_eq::*;
 
-    #[test]
-    fn simulation_creation() {
-        let _ = Netlist::new();
-    }
-
-    #[test]
-    fn adding_components() {
-        let mut net = Netlist::new();
-
-        let resistor = resistor::Resistor::new(1, 0, 1.0);
-        let voltage_source = independent_voltage_source::IVoltageSource::new(1, 1, 0, 12.0);
-        net.add_component(Component::Resistor(resistor));
-        net.add_component(Component::IVoltageSource(voltage_source));
-    }
-
-    #[test]
-    fn simple_vs_resistor_test() {
-        let mut net = Netlist::new();
-
-        let resistor = resistor::Resistor::new(1, 0, 1.0);
-        let voltage_source = independent_voltage_source::IVoltageSource::new(1, 1, 0, 12.0);
-        net.add_component(Component::Resistor(resistor));
-        net.add_component(Component::IVoltageSource(voltage_source));
-    }
-
-    #[test]
-    fn init_matrix_dimensions() {
+    // Example from S3.1.5 of http://qucs.github.io/docs/technical/technical.pdf:
+    // 1V source on node 1, 5 ohm from node 1 to 2, 10 ohm from node 2 to ground, 1A into node 2
+    fn qucs_example_netlist() -> Netlist {
         let mut net = Netlist::new();
 
         let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 1.0);
@@ -311,6 +287,35 @@ mod tests {
         net.add_component(Component::Resistor(r1));
         net.add_component(Component::Resistor(r2));
         net.add_component(Component::ICurrentSource(i1));
+
+        net
+    }
+
+    #[test]
+    fn simulation_creation() {
+        let _ = Netlist::new();
+    }
+
+    #[test]
+    fn simple_vs_resistor_test() {
+        let mut net = Netlist::new();
+
+        let resistor = resistor::Resistor::new(1, 0, 1.0);
+        let voltage_source = independent_voltage_source::IVoltageSource::new(1, 1, 0, 12.0);
+        net.add_component(Component::Resistor(resistor));
+        net.add_component(Component::IVoltageSource(voltage_source));
+
+        net.initialize_dc_mna().unwrap();
+        net.solve_dc_mna().unwrap();
+
+        // 12V across 1 ohm: node 1 at 12V, 12A through the source
+        assert_float_relative_eq!(net.x_mat[(0, 0)], 12.0f64);
+        assert_float_relative_eq!(net.x_mat[(1, 0)], -12.0f64);
+    }
+
+    #[test]
+    fn init_matrix_dimensions() {
+        let mut net = qucs_example_netlist();
 
         // a_mat is uninitialized and thus 0x0
         assert!(net.a_mat.ncols() == 0);
@@ -329,18 +334,7 @@ mod tests {
 
     #[test]
     fn init_matrix_values() {
-        // Based on example from S3.1.5 of http://qucs.github.io/docs/technical/technical.pdf
-        let mut net = Netlist::new();
-
-        let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 1.0);
-        let r1 = resistor::Resistor::new(1, 2, 5.0);
-        let r2 = resistor::Resistor::new(0, 2, 10.0);
-        let i1 = independent_current_source::ICurrentSource::new(0, 2, 1.0);
-
-        net.add_component(Component::IVoltageSource(v1));
-        net.add_component(Component::Resistor(r1));
-        net.add_component(Component::Resistor(r2));
-        net.add_component(Component::ICurrentSource(i1));
+        let mut net = qucs_example_netlist();
 
         net.initialize_dc_mna().unwrap();
 
@@ -357,18 +351,7 @@ mod tests {
 
     #[test]
     fn dc_mna_solve() {
-        // Based on example from S3.1.5 of http://qucs.github.io/docs/technical/technical.pdf
-        let mut net = Netlist::new();
-
-        let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 1.0);
-        let r1 = resistor::Resistor::new(1, 2, 5.0);
-        let r2 = resistor::Resistor::new(0, 2, 10.0);
-        let i1 = independent_current_source::ICurrentSource::new(0, 2, 1.0);
-
-        net.add_component(Component::IVoltageSource(v1));
-        net.add_component(Component::Resistor(r1));
-        net.add_component(Component::Resistor(r2));
-        net.add_component(Component::ICurrentSource(i1));
+        let mut net = qucs_example_netlist();
 
         net.initialize_dc_mna().unwrap();
 
@@ -381,17 +364,7 @@ mod tests {
 
     #[test]
     fn get_node_voltages() {
-        let mut net = Netlist::new();
-
-        let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 1.0);
-        let r1 = resistor::Resistor::new(1, 2, 5.0);
-        let r2 = resistor::Resistor::new(0, 2, 10.0);
-        let i1 = independent_current_source::ICurrentSource::new(0, 2, 1.0);
-
-        net.add_component(Component::IVoltageSource(v1));
-        net.add_component(Component::Resistor(r1));
-        net.add_component(Component::Resistor(r2));
-        net.add_component(Component::ICurrentSource(i1));
+        let mut net = qucs_example_netlist();
 
         net.initialize_dc_mna().unwrap();
 
@@ -483,17 +456,7 @@ mod tests {
 
     #[test]
     fn reinitialize_does_not_accumulate_z() {
-        let mut net = Netlist::new();
-
-        let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 1.0);
-        let r1 = resistor::Resistor::new(1, 2, 5.0);
-        let r2 = resistor::Resistor::new(0, 2, 10.0);
-        let i1 = independent_current_source::ICurrentSource::new(0, 2, 1.0);
-
-        net.add_component(Component::IVoltageSource(v1));
-        net.add_component(Component::Resistor(r1));
-        net.add_component(Component::Resistor(r2));
-        net.add_component(Component::ICurrentSource(i1));
+        let mut net = qucs_example_netlist();
 
         net.initialize_dc_mna().unwrap();
         net.initialize_dc_mna().unwrap();
@@ -505,17 +468,7 @@ mod tests {
 
     #[test]
     fn repeated_solve_does_not_accumulate_x() {
-        let mut net = Netlist::new();
-
-        let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 1.0);
-        let r1 = resistor::Resistor::new(1, 2, 5.0);
-        let r2 = resistor::Resistor::new(0, 2, 10.0);
-        let i1 = independent_current_source::ICurrentSource::new(0, 2, 1.0);
-
-        net.add_component(Component::IVoltageSource(v1));
-        net.add_component(Component::Resistor(r1));
-        net.add_component(Component::Resistor(r2));
-        net.add_component(Component::ICurrentSource(i1));
+        let mut net = qucs_example_netlist();
 
         net.initialize_dc_mna().unwrap();
 
