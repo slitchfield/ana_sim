@@ -18,7 +18,7 @@
 - [ ] Factor the repeated stamp-into-block loop in `initialize_dc_mna` into a helper
 - [ ] Remove unused CCVS fields `source_sensing_node`/`sink_sensing_node`, commented-out field names, and `1.0 as _` casts
 - [ ] Remove or gate debug `eprintln!` calls
-- [ ] Drop `Box<DMatrix>` wrappers (`DMatrix` is already heap-allocated)
+- [x] Drop `Box<DMatrix>` wrappers (`DMatrix` is already heap-allocated)
 - [ ] Delete template `add()` + its test in `lib.rs` and the dead `components/junction.rs`
 - [ ] Delete stale "handle dependent sources" TODOs in `netlist.rs`
 - [ ] Fix comments: z is (N+M)×1; IVS C-matrix comment should say M×N and "C" not "B"

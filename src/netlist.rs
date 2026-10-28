@@ -17,9 +17,9 @@ pub struct Netlist {
 
     // TODO: change to sparse matrix representation
     //   nalgebra-sparse will likely help
-    pub a_mat: Box<DMatrix<f64>>,
-    pub x_mat: Box<DMatrix<f64>>,
-    pub z_mat: Box<DMatrix<f64>>,
+    pub a_mat: DMatrix<f64>,
+    pub x_mat: DMatrix<f64>,
+    pub z_mat: DMatrix<f64>,
 }
 
 #[allow(dead_code)]
@@ -45,9 +45,9 @@ impl Netlist {
         self.num_nodes = Some(n);
         let m = self.num_aux_variables();
 
-        self.a_mat = Box::new(DMatrix::<f64>::from_element(n + m, n + m, 0.0));
-        self.x_mat = Box::new(DMatrix::<f64>::from_element(n + m, 1, 0.0));
-        self.z_mat = Box::new(DMatrix::<f64>::from_element(n + m, 1, 0.0));
+        self.a_mat = DMatrix::<f64>::from_element(n + m, n + m, 0.0);
+        self.x_mat = DMatrix::<f64>::from_element(n + m, 1, 0.0);
+        self.z_mat = DMatrix::<f64>::from_element(n + m, 1, 0.0);
 
         // Construct G matrix from conductances
         let mut g_mat = DMatrix::<f64>::from_element(n, n, 0.0);
@@ -244,21 +244,9 @@ impl Netlist {
     }
 
     pub fn get_node_voltages(&self) -> Option<DMatrix<f64>> {
-        if self.x_mat_valid && self.num_nodes.is_some() {
-            Some(
-                self.x_mat
-                    .view(
-                        (0, 0),
-                        (
-                            self.num_nodes
-                                .expect("Checked that num_nodes is some, but is none"),
-                            1,
-                        ),
-                    )
-                    .into(),
-            )
-        } else {
-            None
+        match self.num_nodes {
+            Some(n) if self.x_mat_valid => Some(self.x_mat.view((0, 0), (n, 1)).into()),
+            _ => None,
         }
     }
 
@@ -283,9 +271,9 @@ impl Default for Netlist {
             num_nodes: None,
             x_mat_valid: false,
 
-            a_mat: Box::new(nalgebra::dmatrix![]),
-            x_mat: Box::new(nalgebra::dmatrix![]),
-            z_mat: Box::new(nalgebra::dmatrix![]),
+            a_mat: nalgebra::dmatrix![],
+            x_mat: nalgebra::dmatrix![],
+            z_mat: nalgebra::dmatrix![],
         }
     }
 }
