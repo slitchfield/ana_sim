@@ -132,7 +132,6 @@ impl Netlist {
         // • the i matrix is 1×N and contains the sum of the currents through the passive elements into
         //   the corresponding node (either zero, or the sum of independent current sources)
         // • the e matrix is 1×M and holds the values of the independent voltage source
-        let mut z_mat = DMatrix::<f64>::from_element(n + m, 1, 0.0);
         let mut v_stamps: Vec<Stamp> = vec![];
         let mut i_stamps: Vec<Stamp> = vec![];
         for component in &self.component_list {
@@ -157,8 +156,6 @@ impl Netlist {
             let mut cell = self.z_mat.view_mut((n + r - 1, c - 1), (1, 1));
             cell[(0, 0)] += val;
         }
-        let mut z_view_mut = self.z_mat.view_mut((0, 0), (n + m, 1));
-        z_view_mut += z_mat.view_mut((0, 0), (n + m, 1));
 
         self.initialized = true;
     }
