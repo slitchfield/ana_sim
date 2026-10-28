@@ -13,6 +13,9 @@ pub enum NetlistError {
     NonContiguousSourceNums { missing: Vec<u64> },
     UnknownDependentSource { unknown: u64 },
     ZeroSourceNum,
+    UninitializedSolve,
+    NonlinearSolve,
+    SingularMatrix,
 }
 
 #[allow(dead_code)]
@@ -174,25 +177,23 @@ impl Netlist {
         Ok(())
     }
 
-    pub fn solve_dc_mna(&mut self) {
-        //TODO: return a result of the solution, encoding whether the solve was initialized or not
-        assert!(self.initialized);
-        assert!(self.is_linear());
-
-        // Dimensions must be N+MxN+M, where N is #nodes and M is #ind v sources
-        let _n = self.num_nodes();
-        let _m = self.num_aux_variables();
+    pub fn solve_dc_mna(&mut self) -> Result<(), NetlistError> {
+        if !self.initialized {
+            return Err(NetlistError::UninitializedSolve);
+        }
+        if !self.is_linear() {
+            return Err(NetlistError::NonlinearSolve);
+        }
 
         eprintln!("A:\n{:.1}", self.a_mat);
         eprintln!("z:\n{:.1}", self.z_mat);
 
         // Rely on LU factorization to solve these systems
         let lu = self.a_mat.clone().full_piv_lu();
-        let result = lu
-            .solve(&self.z_mat)
-            .expect("Could not solve LU Factorization");
+        let result = lu.solve(&self.z_mat).ok_or(NetlistError::SingularMatrix)?;
         self.x_mat = result;
         self.x_mat_valid = true;
+        Ok(())
     }
 
     fn node_set(&self) -> HashSet<u64> {
@@ -472,7 +473,7 @@ mod tests {
 
         net.initialize_dc_mna().unwrap();
 
-        net.solve_dc_mna();
+        net.solve_dc_mna().unwrap();
 
         assert_float_relative_eq!(net.x_mat.view((0, 0), (1, 1))[(0, 0)], 1.0f64);
         assert_float_relative_eq!(net.x_mat.view((1, 0), (1, 1))[(0, 0)], 4.0f64);
@@ -495,7 +496,7 @@ mod tests {
 
         net.initialize_dc_mna().unwrap();
 
-        net.solve_dc_mna();
+        net.solve_dc_mna().unwrap();
 
         let node_voltages = net
             .get_node_voltages()
@@ -521,7 +522,7 @@ mod tests {
 
         assert_float_relative_eq!(net.z_mat[(0, 0)], 3.0f64);
 
-        net.solve_dc_mna();
+        net.solve_dc_mna().unwrap();
 
         let node_voltages = net
             .get_node_voltages()
@@ -546,7 +547,7 @@ mod tests {
 
         assert_float_relative_eq!(net.z_mat[(0, 0)], 2.0f64);
 
-        net.solve_dc_mna();
+        net.solve_dc_mna().unwrap();
 
         let node_voltages = net
             .get_node_voltages()
@@ -572,7 +573,7 @@ mod tests {
 
         net.initialize_dc_mna().unwrap();
 
-        net.solve_dc_mna();
+        net.solve_dc_mna().unwrap();
 
         let node_voltages = net
             .get_node_voltages()
@@ -619,8 +620,8 @@ mod tests {
 
         net.initialize_dc_mna().unwrap();
 
-        net.solve_dc_mna();
-        net.solve_dc_mna();
+        net.solve_dc_mna().unwrap();
+        net.solve_dc_mna().unwrap();
 
         assert_float_relative_eq!(net.x_mat[(0, 0)], 1.0f64);
         assert_float_relative_eq!(net.x_mat[(1, 0)], 4.0f64);
@@ -797,5 +798,45 @@ mod tests {
         net.add_component(Component::Resistor(r3));
 
         assert_eq!(net.initialize_dc_mna(), Ok(()));
+    }
+
+    #[test]
+    fn solve_without_initialize_fails() {
+        let mut net = Netlist::new();
+
+        net.add_component(Component::Resistor(resistor::Resistor::new(1, 0, 1.0)));
+
+        assert_eq!(net.solve_dc_mna(), Err(NetlistError::UninitializedSolve));
+        assert!(net.get_node_voltages().is_none());
+    }
+
+    #[test]
+    fn solve_parallel_voltage_sources_is_singular() {
+        // Passes node/source validation, but the two source rows are identical
+        let mut net = Netlist::new();
+
+        let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 1.0);
+        let v2 = independent_voltage_source::IVoltageSource::new(2, 1, 0, 1.0);
+
+        net.add_component(Component::IVoltageSource(v1));
+        net.add_component(Component::IVoltageSource(v2));
+
+        net.initialize_dc_mna().unwrap();
+
+        assert_eq!(net.solve_dc_mna(), Err(NetlistError::SingularMatrix));
+        assert!(net.get_node_voltages().is_none());
+    }
+
+    #[test]
+    fn solve_floating_subcircuit_is_singular() {
+        // Nodes 2 and 3 are connected only to each other, so their voltages are undetermined
+        let mut net = Netlist::new();
+
+        net.add_component(Component::Resistor(resistor::Resistor::new(1, 0, 1.0)));
+        net.add_component(Component::Resistor(resistor::Resistor::new(2, 3, 1.0)));
+
+        net.initialize_dc_mna().unwrap();
+
+        assert_eq!(net.solve_dc_mna(), Err(NetlistError::SingularMatrix));
     }
 }

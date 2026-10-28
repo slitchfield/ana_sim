@@ -118,7 +118,7 @@ mod tests {
 
         net.initialize_dc_mna().unwrap();
 
-        net.solve_dc_mna();
+        net.solve_dc_mna().unwrap();
 
         let node_voltages = net
             .get_node_voltages()
@@ -148,7 +148,7 @@ mod tests {
 
         net.initialize_dc_mna().unwrap();
 
-        net.solve_dc_mna();
+        net.solve_dc_mna().unwrap();
 
         let node_voltages = net
             .get_node_voltages()
