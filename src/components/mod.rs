@@ -10,7 +10,6 @@ use crate::DCComponent;
 #[derive(Debug)]
 pub struct Stamp(pub usize, pub usize, pub f64);
 
-#[allow(dead_code)]
 pub enum Component {
     Resistor(resistor::Resistor),
     IVoltageSource(independent_voltage_source::IVoltageSource),
@@ -83,17 +82,5 @@ impl DCComponent for Component {
             Component::CCCurrentSource(cccs) => cccs.get_zmat_stamps(),
             Component::CCVoltageSource(ccvs) => ccvs.get_zmat_stamps(),
         }
-    }
-}
-
-#[allow(unused_imports)]
-mod tests {
-    use super::{independent_voltage_source::IVoltageSource, resistor::Resistor, *};
-    use std::sync::Arc;
-
-    #[allow(clippy::assertions_on_constants)]
-    #[test]
-    fn component_level_test() {
-        assert!(true);
     }
 }

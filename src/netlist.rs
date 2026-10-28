@@ -20,7 +20,6 @@ pub enum NetlistError {
     ShortedControl { index: usize },
 }
 
-#[allow(dead_code)]
 pub struct Netlist {
     component_list: Vec<Component>,
     initialized: bool,
@@ -37,7 +36,6 @@ pub struct Netlist {
     pub z_mat: DMatrix<f64>,
 }
 
-#[allow(dead_code)]
 impl Netlist {
     pub fn new() -> Self {
         Netlist {
@@ -105,7 +103,6 @@ impl Netlist {
         b_view += b_mat.view_mut((0, 0), (n, m));
 
         // Construct C matrix from B matrix transpose, handling dependent sources
-        // TODO: handle dependent sources
         let mut c_mat = DMatrix::<f64>::from_element(m, n, 0.0);
         eprintln!(
             "Allocated cmat with shape ({}, {})",
@@ -124,7 +121,6 @@ impl Netlist {
         c_view += c_mat.view_mut((0, 0), (m, n));
 
         // Construct D matrix from dependent sources
-        // TODO: handle dependent sources
         let mut d_mat = DMatrix::<f64>::from_element(m, m, 0.0);
         eprintln!(
             "Allocated dmat with shape({}, {})",
@@ -146,11 +142,11 @@ impl Netlist {
         // The z matrix holds our independent voltage and current sources and will be developed as the
         // combination of 2 smaller matrices i and e. It is quite easy to formulate.
         // z = [i; e]
-        // The z matrix is 1×(M+N) (N is the number of nodes, and M is the number of independent
+        // The z matrix is (N+M)×1 (N is the number of nodes, and M is the number of independent
         // voltage sources) and:
-        // • the i matrix is 1×N and contains the sum of the currents through the passive elements into
+        // • the i matrix is N×1 and contains the sum of the currents through the passive elements into
         //   the corresponding node (either zero, or the sum of independent current sources)
-        // • the e matrix is 1×M and holds the values of the independent voltage source
+        // • the e matrix is M×1 and holds the values of the independent voltage source
         let mut v_stamps: Vec<Stamp> = vec![];
         let mut i_stamps: Vec<Stamp> = vec![];
         for component in &self.component_list {
@@ -396,7 +392,7 @@ impl Default for Netlist {
     }
 }
 
-#[allow(unused_imports)]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::components::cc_current_source;
@@ -407,7 +403,6 @@ mod tests {
     use crate::components::vc_current_source;
     use crate::components::Component;
     use assert_float_eq::*;
-    use std::sync::Arc;
 
     #[test]
     fn simulation_creation() {

@@ -1,7 +1,6 @@
 use crate::components::Stamp;
 use crate::DCComponent;
 
-#[allow(dead_code)]
 #[derive(Default, Debug)]
 pub struct Resistor {
     pub a_node: u64,
@@ -9,7 +8,6 @@ pub struct Resistor {
     pub resistance: f64,
 }
 
-#[allow(dead_code)]
 impl Resistor {
     pub fn new(a_node: u64, b_node: u64, resistance: f64) -> Self {
         Self {
@@ -79,10 +77,9 @@ impl DCComponent for Resistor {
     }
 }
 
-#[allow(unused_imports)]
+#[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
 
     #[test]
     fn creation() {

@@ -19,11 +19,11 @@
 - [ ] Remove unused CCVS fields `source_sensing_node`/`sink_sensing_node`, commented-out field names, and `1.0 as _` casts
 - [ ] Remove or gate debug `eprintln!` calls
 - [x] Drop `Box<DMatrix>` wrappers (`DMatrix` is already heap-allocated)
-- [ ] Delete template `add()` + its test in `lib.rs` and the dead `components/junction.rs`
-- [ ] Delete stale "handle dependent sources" TODOs in `netlist.rs`
-- [ ] Fix comments: z is (N+M)×1; IVS C-matrix comment should say M×N and "C" not "B"
-- [ ] Mark test modules `#[cfg(test)]`; remove `#[allow(unused_imports)]` and unused `Arc` imports; audit `#[allow(dead_code)]`
-- [ ] `Cargo.toml`: move `assert_float_eq` to `[dev-dependencies]`; rename `mylib`/`mybin`
+- [x] Delete template `add()` + its test in `lib.rs` and the dead `components/junction.rs`
+- [x] Delete stale "handle dependent sources" TODOs in `netlist.rs`
+- [x] Fix comments: z is (N+M)×1; IVS C-matrix comment should say M×N and "C" not "B"
+- [x] Mark test modules `#[cfg(test)]`; remove `#[allow(unused_imports)]` and unused `Arc` imports; audit `#[allow(dead_code)]`
+- [x] `Cargo.toml`: move `assert_float_eq` to `[dev-dependencies]`; rename `mylib`/`mybin`
 
 ## Tests
 - [ ] Extract a helper for the Qucs example circuit duplicated across netlist tests; merge the identical, assertion-free `adding_components` and `simple_vs_resistor_test`

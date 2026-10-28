@@ -1,7 +1,6 @@
 use super::Stamp;
 use crate::DCComponent;
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct CCVoltageSource {
     pub source_num: u64,
@@ -13,7 +12,6 @@ pub struct CCVoltageSource {
     gain: f64,
 }
 
-#[allow(dead_code)]
 impl CCVoltageSource {
     pub fn new(
         source_num: u64,
@@ -96,13 +94,13 @@ impl DCComponent for CCVoltageSource {
         vec![]
     }
 }
-#[allow(unused_imports)]
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::components::*;
     use crate::netlist::Netlist;
     use assert_float_eq::*;
-    use std::sync::Arc;
 
     #[test]
     fn creation() {

@@ -44,10 +44,11 @@ Current-controlled sources sense current the SPICE way: insert a 0 V `IVoltageSo
 
 ### Numbering rules
 
-These are not yet validated, so violating them will panic or give wrong answers:
+`initialize_dc_mna()` checks these and returns a `NetlistError` if any is violated:
 
-- Non-ground nodes must be numbered contiguously `1..=n`.
-- `source_num` values across all `IVoltageSource`s and `CCVoltageSource`s must be unique and contiguous `1..=m`.
+- The circuit must use ground (node `0`), and non-ground nodes must be numbered contiguously `1..=n`.
+- `source_num` values across all `IVoltageSource`s and `CCVoltageSource`s must be unique and contiguous `1..=m`, and every `dep_source_num` must refer to one of them.
+- A dependent source's output terminals (and a VCCS's sensing terminals) must not be tied to the same node.
 
 ## Project layout
 
@@ -63,7 +64,7 @@ src/
     vc_current_source.rs
     cc_current_source.rs
     cc_voltage_source.rs
-  bin/main.rs       placeholder binary (prints "Hello, world!")
+  bin/main.rs       TUI viewer (early work in progress, ratatui)
 check.sh            runs check, fmt, clippy and tests
 ```
 
@@ -79,7 +80,7 @@ Dependencies (`nalgebra`, `assert_float_eq`) are fetched automatically.
 
 ## Running
 
-The simulator is currently exercised through its test suite. The binary (`cargo run`) is a placeholder, and the `netlist` and `components` modules are private to the crate, so the library can't yet be used from outside it.
+The simulator is currently exercised through its test suite. The library crate is `ana_sim_engine`, and its `netlist` and `components` modules are public. The `ana_sim_viewer` binary (`cargo run`) is an early TUI that doesn't drive the simulator yet.
 
 Run all tests:
 
@@ -104,8 +105,8 @@ Run the full set of CI-style checks (build, `rustfmt`, `clippy -D warnings`, tes
 This is the reference circuit from the Qucs manual, as written in `src/netlist.rs` tests: a 1 V source on node 1, 5 Ω between nodes 1 and 2, 10 Ω from node 2 to ground, and a 1 A source driving current into node 2.
 
 ```rust
-use crate::components::*;
-use crate::netlist::Netlist;
+use ana_sim_engine::components::*;
+use ana_sim_engine::netlist::Netlist;
 
 let mut net = Netlist::new();
 net.add_component(Component::IVoltageSource(
@@ -117,20 +118,19 @@ net.add_component(Component::ICurrentSource(
     independent_current_source::ICurrentSource::new(0, 2, 1.0),
 ));
 
-net.initialize_dc_mna();
-net.solve_dc_mna();
+net.initialize_dc_mna()?; // rejects invalid node/source numbering
+net.solve_dc_mna()?;      // fails on a singular system
 
 let v = net.get_node_voltages().unwrap();
 // v[0] == 1.0 V (node 1), v[1] == 4.0 V (node 2)
 ```
 
-To experiment with your own circuit, add a `#[test]` like this to a test module in `src/netlist.rs` and run it with `cargo test <test_name> -- --nocapture`.
+Both calls return `Result<(), NetlistError>`. To experiment with your own circuit, add a `#[test]` like this to a test module in `src/netlist.rs` (using `.unwrap()` in place of `?`) and run it with `cargo test <test_name> -- --nocapture`.
 
 ## Limitations
 
 - DC analysis of linear circuits only. No AC, transient or nonlinear analysis.
 - Dense matrices only.
 - No netlist parser or CLI.
-- Input numbering is not validated, and errors panic rather than returning a `Result`.
 
 See [Todo.md](Todo.md) for the full list.

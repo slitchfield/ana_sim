@@ -1,7 +1,6 @@
 use super::Stamp;
 use crate::DCComponent;
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct IVoltageSource {
     pub source_num: u64,
@@ -10,7 +9,6 @@ pub struct IVoltageSource {
     voltage: f64,
 }
 
-#[allow(dead_code)]
 impl IVoltageSource {
     pub fn new(source_num: u64, positive_node: u64, negative_node: u64, voltage: f64) -> Self {
         Self {
@@ -49,10 +47,10 @@ impl DCComponent for IVoltageSource {
     }
 
     fn get_cmat_stamps(&self) -> Vec<Stamp> {
-        // The C matrix is an N×M matrix with only 0, 1 and -1 elements. Each location in the matrix
+        // The C matrix is an M×N matrix with only 0, 1 and -1 elements. Each location in the matrix
         // corresponds to a particular voltage source (first dimension) or a node (second dimension). If the
         // positive terminal of the ith voltage source is connected to node k, then the element (i, k) in the
-        // B matrix is a 1. If the negative terminal of the ith voltage source is connected to node k, then
+        // C matrix is a 1. If the negative terminal of the ith voltage source is connected to node k, then
         //the element (i, k) in the C matrix is a -1. Otherwise, elements of the C matrix are zero.
         let mut ret_vec: Vec<Stamp> = vec![];
         if self.positive_node != 0 {
@@ -70,19 +68,18 @@ impl DCComponent for IVoltageSource {
     }
 
     fn get_zmat_stamps(&self) -> Vec<Stamp> {
-        // The z matrix is 1×(M+N) (N is the number of nodes, and M is the number of independent
+        // The z matrix is (N+M)×1 (N is the number of nodes, and M is the number of independent
         //    voltage sources) and:
-        //    • the i matrix is 1×N and contains the sum of the currents through the passive elements into
+        //    • the i matrix is N×1 and contains the sum of the currents through the passive elements into
         //    the corresponding node (either zero, or the sum of independent current sources)
-        //    • the e matrix is 1×M and holds the values of the independent voltage sources
+        //    • the e matrix is M×1 and holds the values of the independent voltage sources
         vec![Stamp(self.source_num as _, 1, self.voltage)]
     }
 }
 
-#[allow(unused_imports)]
+#[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
 
     #[test]
     fn creation() {

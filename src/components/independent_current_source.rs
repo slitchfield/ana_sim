@@ -1,7 +1,6 @@
 use super::Stamp;
 use crate::DCComponent;
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct ICurrentSource {
     pub source_node: u64,
@@ -9,7 +8,6 @@ pub struct ICurrentSource {
     current: f64,
 }
 
-#[allow(dead_code)]
 impl ICurrentSource {
     pub fn new(source_node: u64, sink_node: u64, current: f64) -> Self {
         Self {
@@ -42,9 +40,9 @@ impl DCComponent for ICurrentSource {
     }
 
     fn get_zmat_stamps(&self) -> Vec<Stamp> {
-        // The z matrix is 1×(M+N) (N is the number of nodes, and M is the number of independent
+        // The z matrix is (N+M)×1 (N is the number of nodes, and M is the number of independent
         //   voltage sources) and:
-        //    • the i matrix is 1×N and contains the sum of the currents through the passive elements into
+        //    • the i matrix is N×1 and contains the sum of the currents through the passive elements into
         //      the corresponding node (either zero, or the sum of independent current sources
         let mut retvec: Vec<Stamp> = vec![];
         if self.source_node != 0 {
@@ -57,10 +55,9 @@ impl DCComponent for ICurrentSource {
     }
 }
 
-#[allow(unused_imports)]
+#[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
 
     #[test]
     fn creation() {

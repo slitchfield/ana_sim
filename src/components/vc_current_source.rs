@@ -2,7 +2,6 @@ use crate::DCComponent;
 
 use super::Stamp;
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct VCCurrentSource {
     pub source_sensing_node: u64,
@@ -12,7 +11,6 @@ pub struct VCCurrentSource {
     gain: f64,
 }
 
-#[allow(dead_code)]
 impl VCCurrentSource {
     pub fn new(
         source_sensing_node: u64,
@@ -86,13 +84,12 @@ impl DCComponent for VCCurrentSource {
     }
 }
 
-#[allow(unused_imports)]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::components::*;
     use crate::netlist::Netlist;
     use assert_float_eq::*;
-    use std::sync::Arc;
 
     #[test]
     fn creation() {

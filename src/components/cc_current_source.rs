@@ -2,7 +2,6 @@ use crate::DCComponent;
 
 use super::Stamp;
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct CCCurrentSource {
     pub dep_source_num: u64,
@@ -11,7 +10,6 @@ pub struct CCCurrentSource {
     gain: f64,
 }
 
-#[allow(dead_code)]
 impl CCCurrentSource {
     pub fn new(dep_source_num: u64, source_node: u64, sink_node: u64, gain: f64) -> Self {
         Self {
@@ -65,13 +63,12 @@ impl DCComponent for CCCurrentSource {
     }
 }
 
-#[allow(unused_imports)]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::components::*;
     use crate::netlist::Netlist;
     use assert_float_eq::*;
-    use std::sync::Arc;
 
     #[test]
     fn creation() {
