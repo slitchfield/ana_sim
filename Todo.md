@@ -8,7 +8,7 @@
 
 ## Correctness guards
 - [x] Validate node numbering is contiguous 1..n (node IDs are used directly as matrix indices)
-- [ ] Validate `source_num` across voltage sources/CCVSs is exactly 1..m and unique; validate `dep_source_num` references an existing source
+- [x] Validate `source_num` across voltage sources/CCVSs is exactly 1..m and unique; validate `dep_source_num` references an existing source
 - [ ] Implement the existing "sensing/output nodes don't overlap illegally" TODOs (VCCS, CCCS, CCVS)
 - [ ] Return a `Result` from `solve_dc_mna` instead of `assert!`/`.expect()`
 

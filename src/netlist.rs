@@ -9,6 +9,10 @@ use nalgebra::base::DMatrix;
 pub enum NetlistError {
     NoGroundNode,
     NonContiguousNodes { missing: Vec<u64> },
+    DuplicateSourceNum { duplicate: u64 },
+    NonContiguousSourceNums { missing: Vec<u64> },
+    UnknownDependentSource { unknown: u64 },
+    ZeroSourceNum,
 }
 
 #[allow(dead_code)]
@@ -46,6 +50,7 @@ impl Netlist {
 
     pub fn initialize_dc_mna(&mut self) -> Result<(), NetlistError> {
         self.validate_nodes()?;
+        self.validate_source_numbering()?;
 
         // Construct A matrix
         // Dimensions must be N+MxN+M, where N is #nodes and M is #ind v sources
@@ -248,6 +253,59 @@ impl Netlist {
         Err(NetlistError::NonContiguousNodes { missing })
     }
 
+    fn validate_source_numbering(&self) -> Result<(), NetlistError> {
+        // Iterate through the voltage sources and CCVS, collecting the `source_num`s
+
+        let mut source_nums: HashSet<u64> = HashSet::new();
+        let mut dep_source_nums: Vec<u64> = vec![];
+
+        for component in &self.component_list {
+            match component {
+                Component::Resistor(_)
+                | Component::ICurrentSource(_)
+                | Component::VCCurrentSource(_) => {}
+                Component::IVoltageSource(vs) => {
+                    if !source_nums.insert(vs.source_num) {
+                        return Err(NetlistError::DuplicateSourceNum {
+                            duplicate: vs.source_num,
+                        });
+                    }
+                }
+                Component::CCCurrentSource(depsrc) => {
+                    dep_source_nums.push(depsrc.dep_source_num);
+                }
+                Component::CCVoltageSource(depsrc) => {
+                    if !source_nums.insert(depsrc.source_num) {
+                        return Err(NetlistError::DuplicateSourceNum {
+                            duplicate: depsrc.source_num,
+                        });
+                    }
+                    dep_source_nums.push(depsrc.dep_source_num);
+                }
+            }
+        }
+
+        // Check for dependent source nums in the set
+        for depsrc in dep_source_nums {
+            if !source_nums.contains(&depsrc) {
+                return Err(NetlistError::UnknownDependentSource { unknown: depsrc });
+            }
+        }
+
+        // Check for a `0` source num value
+        if source_nums.contains(&0) {
+            return Err(NetlistError::ZeroSourceNum);
+        }
+        // Check for contiguity
+        // m distinct positive source numbers are exactly 1..=m iff none exceeds m
+        let max = source_nums.iter().copied().max().unwrap_or(0);
+        if max as usize == source_nums.len() {
+            return Ok(());
+        }
+        let missing = (1..=max).filter(|k| !source_nums.contains(k)).collect();
+        Err(NetlistError::NonContiguousSourceNums { missing })
+    }
+
     pub fn num_aux_variables(&self) -> usize {
         let mut num_aux_variables = 0usize;
         for component in &self.component_list {
@@ -306,6 +364,8 @@ impl Default for Netlist {
 #[allow(unused_imports)]
 mod tests {
     use super::*;
+    use crate::components::cc_current_source;
+    use crate::components::cc_voltage_source;
     use crate::components::independent_current_source;
     use crate::components::independent_voltage_source;
     use crate::components::resistor;
@@ -624,6 +684,117 @@ mod tests {
 
         net.add_component(Component::Resistor(resistor::Resistor::new(2, 1, 1.0)));
         net.add_component(Component::Resistor(resistor::Resistor::new(1, 0, 1.0)));
+
+        assert_eq!(net.initialize_dc_mna(), Ok(()));
+    }
+
+    #[test]
+    fn validate_sources_rejects_duplicate_voltage_sources() {
+        let mut net = Netlist::new();
+
+        let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 1.0);
+        let v2 = independent_voltage_source::IVoltageSource::new(1, 2, 0, 1.0);
+        let r1 = resistor::Resistor::new(1, 2, 1.0);
+
+        net.add_component(Component::IVoltageSource(v1));
+        net.add_component(Component::IVoltageSource(v2));
+        net.add_component(Component::Resistor(r1));
+
+        assert_eq!(
+            net.initialize_dc_mna(),
+            Err(NetlistError::DuplicateSourceNum { duplicate: 1 })
+        );
+        assert!(!net.initialized);
+    }
+
+    #[test]
+    fn validate_sources_rejects_duplicate_across_types() {
+        let mut net = Netlist::new();
+
+        let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 1.0);
+        let ccvs = cc_voltage_source::CCVoltageSource::new(1, 1, 0, 0, 2, 0, 1.0);
+        let r1 = resistor::Resistor::new(2, 0, 1.0);
+
+        net.add_component(Component::IVoltageSource(v1));
+        net.add_component(Component::CCVoltageSource(ccvs));
+        net.add_component(Component::Resistor(r1));
+
+        assert_eq!(
+            net.initialize_dc_mna(),
+            Err(NetlistError::DuplicateSourceNum { duplicate: 1 })
+        );
+    }
+
+    #[test]
+    fn validate_sources_rejects_gap() {
+        let mut net = Netlist::new();
+
+        let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 1.0);
+        let v3 = independent_voltage_source::IVoltageSource::new(3, 2, 0, 1.0);
+        let r1 = resistor::Resistor::new(1, 2, 1.0);
+
+        net.add_component(Component::IVoltageSource(v1));
+        net.add_component(Component::IVoltageSource(v3));
+        net.add_component(Component::Resistor(r1));
+
+        assert_eq!(
+            net.initialize_dc_mna(),
+            Err(NetlistError::NonContiguousSourceNums { missing: vec![2] })
+        );
+    }
+
+    #[test]
+    fn validate_sources_rejects_zero() {
+        let mut net = Netlist::new();
+
+        let v0 = independent_voltage_source::IVoltageSource::new(0, 1, 0, 1.0);
+        let r1 = resistor::Resistor::new(1, 0, 1.0);
+
+        net.add_component(Component::IVoltageSource(v0));
+        net.add_component(Component::Resistor(r1));
+
+        assert_eq!(net.initialize_dc_mna(), Err(NetlistError::ZeroSourceNum));
+    }
+
+    #[test]
+    fn validate_sources_rejects_unknown_dependency() {
+        let mut net = Netlist::new();
+
+        let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 1.0);
+        let r1 = resistor::Resistor::new(1, 0, 1.0);
+        let cccs = cc_current_source::CCCurrentSource::new(5, 1, 0, 1.0);
+
+        net.add_component(Component::IVoltageSource(v1));
+        net.add_component(Component::Resistor(r1));
+        net.add_component(Component::CCCurrentSource(cccs));
+
+        assert_eq!(
+            net.initialize_dc_mna(),
+            Err(NetlistError::UnknownDependentSource { unknown: 5 })
+        );
+    }
+
+    #[test]
+    fn validate_sources_accepts_ccvs_controlled_by_ccvs() {
+        let mut net = Netlist::new();
+
+        // v1 drives node 1; vsense measures current into r1; ccvs2 is controlled by
+        // vsense, and ccvs3 is controlled by ccvs2's branch current
+        let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 1.0);
+        let vsense = independent_voltage_source::IVoltageSource::new(2, 1, 2, 0.0);
+        let r1 = resistor::Resistor::new(2, 0, 1.0);
+        let ccvs2 = cc_voltage_source::CCVoltageSource::new(3, 2, 0, 0, 3, 0, 1.0);
+        let r2 = resistor::Resistor::new(3, 0, 1.0);
+        let ccvs3 = cc_voltage_source::CCVoltageSource::new(4, 3, 0, 0, 4, 0, 1.0);
+        let r3 = resistor::Resistor::new(4, 0, 1.0);
+
+        net.add_component(Component::IVoltageSource(v1));
+        net.add_component(Component::IVoltageSource(vsense));
+        net.add_component(Component::Resistor(r1));
+        net.add_component(Component::CCVoltageSource(ccvs2));
+        net.add_component(Component::Resistor(r2));
+        net.add_component(Component::CCVoltageSource(ccvs3));
+        net.add_component(Component::Resistor(r3));
 
         assert_eq!(net.initialize_dc_mna(), Ok(()));
     }
