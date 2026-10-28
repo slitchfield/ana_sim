@@ -4,7 +4,7 @@
 - [x] Fix z-matrix stamps overwriting instead of accumulating (`=` → `+=` in `netlist.rs` z assembly); two current sources into one node currently clobber each other
 - [x] Fix `solve_dc_mna` accumulating into `x_mat` (`+=`), which doubles results on a second solve; assign instead
 - [x] Remove the dead local `z_mat` in `initialize_dc_mna` (never stamped, added as zeros)
-- [ ] Fix `cc_voltage_source::tests::basic_function_ungrounded`, which builds a VCCS instead of a CCVS
+- [x] Fix `cc_voltage_source::tests::basic_function_ungrounded`, which builds a VCCS instead of a CCVS
 
 ## Correctness guards
 - [ ] Validate node numbering is contiguous 1..n (node IDs are used directly as matrix indices)

@@ -143,18 +143,20 @@ mod tests {
         let mut net = Netlist::new();
 
         let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 2.0);
-        let r1 = resistor::Resistor::new(1, 2, 1.0);
-        let r2 = resistor::Resistor::new(0, 2, 1.0);
-        let vccs = vc_current_source::VCCurrentSource::new(2, 0, 4, 3, 1.0);
+        // 0V source senses the current from node 1 to node 2
+        let vsense = independent_voltage_source::IVoltageSource::new(2, 1, 2, 0.0);
+        let r1 = resistor::Resistor::new(2, 0, 1.0);
+        // Floating output across nodes 3 and 4; V3 - V4 = -gain * j(vsense)
+        let ccvs = cc_voltage_source::CCVoltageSource::new(3, 2, 1, 2, 3, 4, 1.0);
         let r3 = resistor::Resistor::new(3, 0, 1.0);
         let r4 = resistor::Resistor::new(4, 0, 1.0);
 
         net.add_component(Component::IVoltageSource(v1));
+        net.add_component(Component::IVoltageSource(vsense));
         net.add_component(Component::Resistor(r1));
-        net.add_component(Component::Resistor(r2));
         net.add_component(Component::Resistor(r3));
         net.add_component(Component::Resistor(r4));
-        net.add_component(Component::VCCurrentSource(vccs));
+        net.add_component(Component::CCVoltageSource(ccvs));
 
         net.initialize_dc_mna();
 
@@ -164,8 +166,8 @@ mod tests {
             .get_node_voltages()
             .expect("voltages should be valid here");
         assert_float_relative_eq!(node_voltages.view((1 - 1, 0), (1, 1))[(0, 0)], 2.0f64);
-        assert_float_relative_eq!(node_voltages.view((2 - 1, 0), (1, 1))[(0, 0)], 1.0f64);
-        assert_float_relative_eq!(node_voltages.view((3 - 1, 0), (1, 1))[(0, 0)], 1.0f64);
-        assert_float_relative_eq!(node_voltages.view((4 - 1, 0), (1, 1))[(0, 0)], -1.0f64);
+        assert_float_relative_eq!(node_voltages.view((2 - 1, 0), (1, 1))[(0, 0)], 2.0f64);
+        assert_float_relative_eq!(node_voltages.view((3 - 1, 0), (1, 1))[(0, 0)], -1.0f64);
+        assert_float_relative_eq!(node_voltages.view((4 - 1, 0), (1, 1))[(0, 0)], 1.0f64);
     }
 }
