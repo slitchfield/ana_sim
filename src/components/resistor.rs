@@ -24,6 +24,14 @@ impl Resistor {
 }
 
 impl DCComponent for Resistor {
+    fn nodes(&self) -> Vec<u64> {
+        vec![self.a_node, self.b_node]
+    }
+
+    fn num_aux_variables(&self) -> usize {
+        0
+    }
+
     fn get_gmat_stamps(&self) -> Vec<Stamp> {
         let mut ret_vec: Vec<Stamp> = vec![];
 
@@ -72,7 +80,11 @@ impl DCComponent for Resistor {
         vec![]
     }
 
-    fn get_zmat_stamps(&self) -> Vec<Stamp> {
+    fn get_ivec_stamps(&self) -> Vec<Stamp> {
+        vec![]
+    }
+
+    fn get_evec_stamps(&self) -> Vec<Stamp> {
         vec![]
     }
 }

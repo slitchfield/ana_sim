@@ -26,6 +26,14 @@ impl CCCurrentSource {
 }
 
 impl DCComponent for CCCurrentSource {
+    fn nodes(&self) -> Vec<u64> {
+        vec![self.source_node, self.sink_node]
+    }
+
+    fn num_aux_variables(&self) -> usize {
+        0
+    }
+
     fn get_gmat_stamps(&self) -> Vec<Stamp> {
         vec![]
     }
@@ -57,8 +65,11 @@ impl DCComponent for CCCurrentSource {
         vec![]
     }
 
-    fn get_zmat_stamps(&self) -> Vec<Stamp> {
-        // CCCS does not require any additional stamps for rhs
+    fn get_ivec_stamps(&self) -> Vec<Stamp> {
+        vec![]
+    }
+
+    fn get_evec_stamps(&self) -> Vec<Stamp> {
         vec![]
     }
 }

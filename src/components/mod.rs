@@ -33,6 +33,26 @@ impl Component {
 }
 
 impl DCComponent for Component {
+    fn nodes(&self) -> Vec<u64> {
+        match self {
+            Component::Resistor(res) => res.nodes(),
+            Component::IVoltageSource(vs) => vs.nodes(),
+            Component::ICurrentSource(is) => is.nodes(),
+            Component::VCCurrentSource(vccs) => vccs.nodes(),
+            Component::CCCurrentSource(cccs) => cccs.nodes(),
+            Component::CCVoltageSource(ccvs) => ccvs.nodes(),
+        }
+    }
+    fn num_aux_variables(&self) -> usize {
+        match self {
+            Component::Resistor(res) => res.num_aux_variables(),
+            Component::IVoltageSource(vs) => vs.num_aux_variables(),
+            Component::ICurrentSource(is) => is.num_aux_variables(),
+            Component::VCCurrentSource(vccs) => vccs.num_aux_variables(),
+            Component::CCCurrentSource(cccs) => cccs.num_aux_variables(),
+            Component::CCVoltageSource(ccvs) => ccvs.num_aux_variables(),
+        }
+    }
     fn get_gmat_stamps(&self) -> Vec<Stamp> {
         match self {
             Component::Resistor(res) => res.get_gmat_stamps(),
@@ -73,14 +93,24 @@ impl DCComponent for Component {
             Component::CCVoltageSource(ccvs) => ccvs.get_dmat_stamps(),
         }
     }
-    fn get_zmat_stamps(&self) -> Vec<Stamp> {
+    fn get_ivec_stamps(&self) -> Vec<Stamp> {
         match self {
-            Component::Resistor(res) => res.get_zmat_stamps(),
-            Component::IVoltageSource(vs) => vs.get_zmat_stamps(),
-            Component::ICurrentSource(is) => is.get_zmat_stamps(),
-            Component::VCCurrentSource(vccs) => vccs.get_zmat_stamps(),
-            Component::CCCurrentSource(cccs) => cccs.get_zmat_stamps(),
-            Component::CCVoltageSource(ccvs) => ccvs.get_zmat_stamps(),
+            Component::Resistor(res) => res.get_ivec_stamps(),
+            Component::IVoltageSource(vs) => vs.get_ivec_stamps(),
+            Component::ICurrentSource(is) => is.get_ivec_stamps(),
+            Component::VCCurrentSource(vccs) => vccs.get_ivec_stamps(),
+            Component::CCCurrentSource(cccs) => cccs.get_ivec_stamps(),
+            Component::CCVoltageSource(ccvs) => ccvs.get_ivec_stamps(),
+        }
+    }
+    fn get_evec_stamps(&self) -> Vec<Stamp> {
+        match self {
+            Component::Resistor(res) => res.get_evec_stamps(),
+            Component::IVoltageSource(vs) => vs.get_evec_stamps(),
+            Component::ICurrentSource(is) => is.get_evec_stamps(),
+            Component::VCCurrentSource(vccs) => vccs.get_evec_stamps(),
+            Component::CCCurrentSource(cccs) => cccs.get_evec_stamps(),
+            Component::CCVoltageSource(ccvs) => ccvs.get_evec_stamps(),
         }
     }
 }

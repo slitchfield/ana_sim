@@ -56,8 +56,7 @@ impl Netlist {
         self.validate_source_numbering()?;
         self.validate_terminals()?;
 
-        // Construct A matrix
-        // Dimensions must be N+MxN+M, where N is #nodes and M is #ind v sources
+        // A is (N+M)×(N+M); x and z are (N+M)×1
         let n = self.num_nodes();
         self.num_nodes = Some(n);
         let m = self.num_aux_variables();
@@ -66,110 +65,18 @@ impl Netlist {
         self.x_mat = DMatrix::<f64>::from_element(n + m, 1, 0.0);
         self.z_mat = DMatrix::<f64>::from_element(n + m, 1, 0.0);
 
-        // Construct G matrix from conductances
-        let mut g_mat = DMatrix::<f64>::from_element(n, n, 0.0);
-        eprintln!(
-            "Allocated gmat with shape ({}, {})",
-            g_mat.nrows(),
-            g_mat.ncols()
-        );
+        // A = [G B; C D], z = [i; e]
+        //   G (N×N) conductances, B (N×M) / C (M×N) voltage-source connections,
+        //   D (M×M) dependent-source coupling
+        //   i (N×1) net independent current into each node, e (M×1) independent source voltages
+        // N is the number of non-ground nodes and M the number of auxiliary current unknowns
         for component in &self.component_list {
-            let stamps = component.get_gmat_stamps();
-            for Stamp(r, c, val) in stamps {
-                eprintln!("Got gmat stamp: {:?}", Stamp(r, c, val));
-                let mut cell = g_mat.view_mut((r - 1, c - 1), (1, 1));
-                cell[(0, 0)] += val;
-            }
-        }
-        let mut g_view = self.a_mat.view_mut((0, 0), (n, n));
-        g_view += g_mat;
-
-        // Construct B matrix from independent V sources
-        let mut b_mat = DMatrix::<f64>::from_element(n, m, 0.0);
-        eprintln!(
-            "Allocated bmat with shape ({}, {})",
-            b_mat.nrows(),
-            b_mat.ncols()
-        );
-        for component in &self.component_list {
-            let stamps = component.get_bmat_stamps();
-            for Stamp(r, c, val) in stamps {
-                eprintln!("Got bmat stamp: {:?}", Stamp(r, c, val));
-                let mut cell = b_mat.view_mut((r - 1, c - 1), (1, 1));
-                cell[(0, 0)] += val;
-            }
-        }
-        let mut b_view = self.a_mat.view_mut((0, n), (n, m));
-        b_view += b_mat.view_mut((0, 0), (n, m));
-
-        // Construct C matrix from B matrix transpose, handling dependent sources
-        let mut c_mat = DMatrix::<f64>::from_element(m, n, 0.0);
-        eprintln!(
-            "Allocated cmat with shape ({}, {})",
-            c_mat.nrows(),
-            c_mat.ncols()
-        );
-        for component in &self.component_list {
-            let stamps = component.get_cmat_stamps();
-            for Stamp(r, c, val) in stamps {
-                eprintln!("Got cmat stamp: {:?}", Stamp(r, c, val));
-                let mut cell = c_mat.view_mut((r - 1, c - 1), (1, 1));
-                cell[(0, 0)] += val;
-            }
-        }
-        let mut c_view = self.a_mat.view_mut((n, 0), (m, n));
-        c_view += c_mat.view_mut((0, 0), (m, n));
-
-        // Construct D matrix from dependent sources
-        let mut d_mat = DMatrix::<f64>::from_element(m, m, 0.0);
-        eprintln!(
-            "Allocated dmat with shape({}, {})",
-            d_mat.nrows(),
-            d_mat.ncols()
-        );
-        for component in &self.component_list {
-            let stamps = component.get_dmat_stamps();
-            for Stamp(r, c, val) in stamps {
-                eprintln!("Got dmat stamp: {:?}", Stamp(r, c, val));
-                let mut cell = d_mat.view_mut((r - 1, c - 1), (1, 1));
-                cell[(0, 0)] += val;
-            }
-        }
-        let mut d_view = self.a_mat.view_mut((n, n), (m, m));
-        d_view += d_mat.view_mut((0, 0), (m, m));
-
-        // Construct Z matrix from independent sources
-        // The z matrix holds our independent voltage and current sources and will be developed as the
-        // combination of 2 smaller matrices i and e. It is quite easy to formulate.
-        // z = [i; e]
-        // The z matrix is (N+M)×1 (N is the number of nodes, and M is the number of independent
-        // voltage sources) and:
-        // • the i matrix is N×1 and contains the sum of the currents through the passive elements into
-        //   the corresponding node (either zero, or the sum of independent current sources)
-        // • the e matrix is M×1 and holds the values of the independent voltage source
-        let mut v_stamps: Vec<Stamp> = vec![];
-        let mut i_stamps: Vec<Stamp> = vec![];
-        for component in &self.component_list {
-            match component {
-                Component::IVoltageSource(vs) => {
-                    v_stamps.append(&mut vs.get_zmat_stamps());
-                }
-                Component::ICurrentSource(is) => {
-                    i_stamps.append(&mut is.get_zmat_stamps());
-                }
-                Component::Resistor(_)
-                | Component::VCCurrentSource(_)
-                | Component::CCCurrentSource(_)
-                | Component::CCVoltageSource(_) => {}
-            }
-        }
-        for Stamp(r, c, val) in i_stamps {
-            let mut cell = self.z_mat.view_mut((r - 1, c - 1), (1, 1));
-            cell[(0, 0)] += val;
-        }
-        for Stamp(r, c, val) in v_stamps {
-            let mut cell = self.z_mat.view_mut((n + r - 1, c - 1), (1, 1));
-            cell[(0, 0)] += val;
+            add_stamps(&mut self.a_mat, 0, 0, component.get_gmat_stamps());
+            add_stamps(&mut self.a_mat, 0, n, component.get_bmat_stamps());
+            add_stamps(&mut self.a_mat, n, 0, component.get_cmat_stamps());
+            add_stamps(&mut self.a_mat, n, n, component.get_dmat_stamps());
+            add_stamps(&mut self.z_mat, 0, 0, component.get_ivec_stamps());
+            add_stamps(&mut self.z_mat, n, 0, component.get_evec_stamps());
         }
 
         self.initialized = true;
@@ -184,9 +91,6 @@ impl Netlist {
             return Err(NetlistError::NonlinearSolve);
         }
 
-        eprintln!("A:\n{:.1}", self.a_mat);
-        eprintln!("z:\n{:.1}", self.z_mat);
-
         // Rely on LU factorization to solve these systems
         let lu = self.a_mat.clone().full_piv_lu();
         let result = lu.solve(&self.z_mat).ok_or(NetlistError::SingularMatrix)?;
@@ -196,39 +100,10 @@ impl Netlist {
     }
 
     fn node_set(&self) -> HashSet<u64> {
-        let mut nodeset: HashSet<u64> = HashSet::<u64>::new();
-
-        for component in &self.component_list {
-            match component {
-                Component::Resistor(res) => {
-                    nodeset.insert(res.a_node);
-                    nodeset.insert(res.b_node);
-                }
-                Component::IVoltageSource(vs) => {
-                    nodeset.insert(vs.positive_node);
-                    nodeset.insert(vs.negative_node);
-                }
-                Component::ICurrentSource(is) => {
-                    nodeset.insert(is.source_node);
-                    nodeset.insert(is.sink_node);
-                }
-                Component::VCCurrentSource(depsrc) => {
-                    nodeset.insert(depsrc.source_node);
-                    nodeset.insert(depsrc.sink_node);
-                    nodeset.insert(depsrc.source_sensing_node);
-                    nodeset.insert(depsrc.sink_sensing_node);
-                }
-                Component::CCCurrentSource(depsrc) => {
-                    nodeset.insert(depsrc.source_node);
-                    nodeset.insert(depsrc.sink_node);
-                }
-                Component::CCVoltageSource(depsrc) => {
-                    nodeset.insert(depsrc.positive_node);
-                    nodeset.insert(depsrc.negative_node);
-                }
-            }
-        }
-        nodeset
+        self.component_list
+            .iter()
+            .flat_map(|component| component.nodes())
+            .collect()
     }
 
     pub fn num_nodes(&self) -> usize {
@@ -338,23 +213,10 @@ impl Netlist {
     }
 
     pub fn num_aux_variables(&self) -> usize {
-        let mut num_aux_variables = 0usize;
-        for component in &self.component_list {
-            match component {
-                Component::IVoltageSource(_) => {
-                    num_aux_variables += 1;
-                }
-                Component::CCVoltageSource(_) => {
-                    num_aux_variables += 1;
-                }
-                Component::ICurrentSource(_)
-                | Component::Resistor(_)
-                | Component::VCCurrentSource(_)
-                | Component::CCCurrentSource(_) => {}
-            }
-        }
-
-        num_aux_variables
+        self.component_list
+            .iter()
+            .map(|component| component.num_aux_variables())
+            .sum()
     }
 
     pub fn get_node_voltages(&self) -> Option<DMatrix<f64>> {
@@ -374,6 +236,13 @@ impl Netlist {
                 println!();
             }
         }
+    }
+}
+
+// Stamps are 1-indexed within their block; the offsets place that block within `target`
+fn add_stamps(target: &mut DMatrix<f64>, row_offset: usize, col_offset: usize, stamps: Vec<Stamp>) {
+    for Stamp(r, c, val) in stamps {
+        target[(row_offset + r - 1, col_offset + c - 1)] += val;
     }
 }
 
@@ -743,7 +612,7 @@ mod tests {
         let mut net = Netlist::new();
 
         let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 1.0);
-        let ccvs = cc_voltage_source::CCVoltageSource::new(1, 1, 0, 0, 2, 0, 1.0);
+        let ccvs = cc_voltage_source::CCVoltageSource::new(1, 1, 2, 0, 1.0);
         let r1 = resistor::Resistor::new(2, 0, 1.0);
 
         net.add_component(Component::IVoltageSource(v1));
@@ -814,9 +683,9 @@ mod tests {
         let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 1.0);
         let vsense = independent_voltage_source::IVoltageSource::new(2, 1, 2, 0.0);
         let r1 = resistor::Resistor::new(2, 0, 1.0);
-        let ccvs2 = cc_voltage_source::CCVoltageSource::new(3, 2, 0, 0, 3, 0, 1.0);
+        let ccvs2 = cc_voltage_source::CCVoltageSource::new(3, 2, 3, 0, 1.0);
         let r2 = resistor::Resistor::new(3, 0, 1.0);
-        let ccvs3 = cc_voltage_source::CCVoltageSource::new(4, 3, 0, 0, 4, 0, 1.0);
+        let ccvs3 = cc_voltage_source::CCVoltageSource::new(4, 3, 4, 0, 1.0);
         let r3 = resistor::Resistor::new(4, 0, 1.0);
 
         net.add_component(Component::IVoltageSource(v1));
@@ -928,7 +797,7 @@ mod tests {
         let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 1.0);
         let r1 = resistor::Resistor::new(1, 2, 1.0);
         let r2 = resistor::Resistor::new(2, 0, 1.0);
-        let ccvs = cc_voltage_source::CCVoltageSource::new(2, 1, 0, 0, 2, 2, 1.0);
+        let ccvs = cc_voltage_source::CCVoltageSource::new(2, 1, 2, 2, 1.0);
 
         net.add_component(Component::IVoltageSource(v1));
         net.add_component(Component::Resistor(r1));

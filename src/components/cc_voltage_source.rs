@@ -5,10 +5,8 @@ use crate::DCComponent;
 pub struct CCVoltageSource {
     pub source_num: u64,
     pub dep_source_num: u64,
-    pub source_sensing_node: u64,
-    pub sink_sensing_node: u64,
-    pub positive_node: u64, // pub source_node: u64,
-    pub negative_node: u64, //pub sink_node: u64,
+    pub positive_node: u64,
+    pub negative_node: u64,
     gain: f64,
 }
 
@@ -16,17 +14,13 @@ impl CCVoltageSource {
     pub fn new(
         source_num: u64,
         dep_source_num: u64,
-        source_sensing_node: u64,
-        sink_sensing_node: u64,
-        positive_node: u64, //source_node: u64,
-        negative_node: u64, //sink_node: u64,
+        positive_node: u64,
+        negative_node: u64,
         gain: f64,
     ) -> Self {
         Self {
             source_num,
             dep_source_num,
-            source_sensing_node,
-            sink_sensing_node,
             positive_node,
             negative_node,
             gain,
@@ -39,6 +33,14 @@ impl CCVoltageSource {
 }
 
 impl DCComponent for CCVoltageSource {
+    fn nodes(&self) -> Vec<u64> {
+        vec![self.positive_node, self.negative_node]
+    }
+
+    fn num_aux_variables(&self) -> usize {
+        1
+    }
+
     fn get_gmat_stamps(&self) -> Vec<Stamp> {
         vec![]
     }
@@ -46,18 +48,10 @@ impl DCComponent for CCVoltageSource {
     fn get_bmat_stamps(&self) -> Vec<Stamp> {
         let mut retvec: Vec<Stamp> = vec![];
         if self.positive_node != 0 {
-            retvec.push(Stamp(
-                self.positive_node as _,
-                self.source_num as _,
-                1.0 as _,
-            ));
+            retvec.push(Stamp(self.positive_node as _, self.source_num as _, 1.0));
         }
         if self.negative_node != 0 {
-            retvec.push(Stamp(
-                self.negative_node as _,
-                self.source_num as _,
-                -1.0 as _,
-            ));
+            retvec.push(Stamp(self.negative_node as _, self.source_num as _, -1.0));
         }
         retvec
     }
@@ -66,18 +60,10 @@ impl DCComponent for CCVoltageSource {
         let mut retvec: Vec<Stamp> = vec![];
 
         if self.positive_node != 0 {
-            retvec.push(Stamp(
-                self.source_num as _,
-                self.positive_node as _,
-                1.0 as _,
-            ));
+            retvec.push(Stamp(self.source_num as _, self.positive_node as _, 1.0));
         }
         if self.negative_node != 0 {
-            retvec.push(Stamp(
-                self.source_num as _,
-                self.negative_node as _,
-                -1.0 as _,
-            ))
+            retvec.push(Stamp(self.source_num as _, self.negative_node as _, -1.0))
         }
         retvec
     }
@@ -90,7 +76,11 @@ impl DCComponent for CCVoltageSource {
         )]
     }
 
-    fn get_zmat_stamps(&self) -> Vec<Stamp> {
+    fn get_ivec_stamps(&self) -> Vec<Stamp> {
+        vec![]
+    }
+
+    fn get_evec_stamps(&self) -> Vec<Stamp> {
         vec![]
     }
 }
@@ -104,7 +94,7 @@ mod tests {
 
     #[test]
     fn creation() {
-        let _ = CCVoltageSource::new(0, 1, 0, 1, 0, 1, 12.0f64);
+        let _ = CCVoltageSource::new(0, 1, 0, 1, 12.0f64);
     }
 
     #[test]
@@ -115,7 +105,7 @@ mod tests {
         let v2 = independent_voltage_source::IVoltageSource::new(2, 2, 1, 0.0);
         let r1 = resistor::Resistor::new(2, 3, 1.0);
         let r2 = resistor::Resistor::new(0, 3, 1.0);
-        let ccvs = cc_voltage_source::CCVoltageSource::new(3, 2, 1, 2, 3, 0, 1.0);
+        let ccvs = cc_voltage_source::CCVoltageSource::new(3, 2, 3, 0, 1.0);
 
         net.add_component(Component::IVoltageSource(v1));
         net.add_component(Component::IVoltageSource(v2));
@@ -144,7 +134,7 @@ mod tests {
         let vsense = independent_voltage_source::IVoltageSource::new(2, 1, 2, 0.0);
         let r1 = resistor::Resistor::new(2, 0, 1.0);
         // Floating output across nodes 3 and 4; V3 - V4 = -gain * j(vsense)
-        let ccvs = cc_voltage_source::CCVoltageSource::new(3, 2, 1, 2, 3, 4, 1.0);
+        let ccvs = cc_voltage_source::CCVoltageSource::new(3, 2, 3, 4, 1.0);
         let r3 = resistor::Resistor::new(3, 0, 1.0);
         let r4 = resistor::Resistor::new(4, 0, 1.0);
 

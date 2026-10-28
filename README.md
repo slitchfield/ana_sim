@@ -38,7 +38,7 @@ The method and the reference test circuit follow §3.1.5 of the [Qucs technical 
 | Independent current source | `ICurrentSource::new(source_node, sink_node, current)` | Current flows from `source_node` through the source into `sink_node` |
 | Voltage-controlled current source | `VCCurrentSource::new(sense_pos, sense_neg, source_node, sink_node, gain)` | Output current `gain · (V(sense_pos) − V(sense_neg))` |
 | Current-controlled current source | `CCCurrentSource::new(dep_source_num, source_node, sink_node, gain)` | Controlled by the branch current of voltage source `dep_source_num` |
-| Current-controlled voltage source | `CCVoltageSource::new(source_num, dep_source_num, _, _, positive_node, negative_node, gain)` | Adds one auxiliary current unknown; the two sensing-node arguments are currently unused |
+| Current-controlled voltage source | `CCVoltageSource::new(source_num, dep_source_num, positive_node, negative_node, gain)` | Adds one auxiliary current unknown; controlled by the branch current of voltage source `dep_source_num` |
 
 Current-controlled sources sense current the SPICE way: insert a 0 V `IVoltageSource` in the branch to be measured and reference its `source_num`.
 

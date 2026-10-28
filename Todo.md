@@ -13,11 +13,11 @@
 - [x] Return a `Result` from `solve_dc_mna` instead of `assert!`/`.expect()`
 
 ## Cleanup
-- [ ] Route z-matrix assembly through `DCComponent::get_zmat_stamps` like G/B/C/D instead of matching on variants
-- [ ] Move per-component node/aux-variable knowledge into the components (e.g. `nodes()` / `aux_count()`) instead of hard-coding in `num_nodes`/`num_aux_variables`
-- [ ] Factor the repeated stamp-into-block loop in `initialize_dc_mna` into a helper
-- [ ] Remove unused CCVS fields `source_sensing_node`/`sink_sensing_node`, commented-out field names, and `1.0 as _` casts
-- [ ] Remove or gate debug `eprintln!` calls
+- [x] Route z-matrix assembly through `DCComponent::get_zmat_stamps` like G/B/C/D instead of matching on variants
+- [x] Move per-component node/aux-variable knowledge into the components (e.g. `nodes()` / `aux_count()`) instead of hard-coding in `num_nodes`/`num_aux_variables`
+- [x] Factor the repeated stamp-into-block loop in `initialize_dc_mna` into a helper
+- [x] Remove unused CCVS fields `source_sensing_node`/`sink_sensing_node`, commented-out field names, and `1.0 as _` casts
+- [x] Remove or gate debug `eprintln!` calls
 - [x] Drop `Box<DMatrix>` wrappers (`DMatrix` is already heap-allocated)
 - [x] Delete template `add()` + its test in `lib.rs` and the dead `components/junction.rs`
 - [x] Delete stale "handle dependent sources" TODOs in `netlist.rs`

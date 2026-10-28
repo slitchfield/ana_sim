@@ -25,6 +25,14 @@ impl IVoltageSource {
 }
 
 impl DCComponent for IVoltageSource {
+    fn nodes(&self) -> Vec<u64> {
+        vec![self.positive_node, self.negative_node]
+    }
+
+    fn num_aux_variables(&self) -> usize {
+        1
+    }
+
     fn get_gmat_stamps(&self) -> Vec<Stamp> {
         vec![]
     }
@@ -67,12 +75,12 @@ impl DCComponent for IVoltageSource {
         vec![]
     }
 
-    fn get_zmat_stamps(&self) -> Vec<Stamp> {
-        // The z matrix is (N+M)×1 (N is the number of nodes, and M is the number of independent
-        //    voltage sources) and:
-        //    • the i matrix is N×1 and contains the sum of the currents through the passive elements into
-        //    the corresponding node (either zero, or the sum of independent current sources)
-        //    • the e matrix is M×1 and holds the values of the independent voltage sources
+    fn get_ivec_stamps(&self) -> Vec<Stamp> {
+        vec![]
+    }
+
+    fn get_evec_stamps(&self) -> Vec<Stamp> {
+        // Row is the source number within the e block of z
         vec![Stamp(self.source_num as _, 1, self.voltage)]
     }
 }

@@ -23,6 +23,14 @@ impl ICurrentSource {
 }
 
 impl DCComponent for ICurrentSource {
+    fn nodes(&self) -> Vec<u64> {
+        vec![self.source_node, self.sink_node]
+    }
+
+    fn num_aux_variables(&self) -> usize {
+        0
+    }
+
     fn get_gmat_stamps(&self) -> Vec<Stamp> {
         vec![]
     }
@@ -39,11 +47,8 @@ impl DCComponent for ICurrentSource {
         vec![]
     }
 
-    fn get_zmat_stamps(&self) -> Vec<Stamp> {
-        // The z matrix is (N+M)×1 (N is the number of nodes, and M is the number of independent
-        //   voltage sources) and:
-        //    • the i matrix is N×1 and contains the sum of the currents through the passive elements into
-        //      the corresponding node (either zero, or the sum of independent current sources
+    fn get_ivec_stamps(&self) -> Vec<Stamp> {
+        // Row is the node number within the i block of z: the net current injected into the node
         let mut retvec: Vec<Stamp> = vec![];
         if self.source_node != 0 {
             retvec.push(Stamp(self.source_node as _, 1, -self.current));
@@ -52,6 +57,10 @@ impl DCComponent for ICurrentSource {
             retvec.push(Stamp(self.sink_node as _, 1, self.current));
         }
         retvec
+    }
+
+    fn get_evec_stamps(&self) -> Vec<Stamp> {
+        vec![]
     }
 }
 

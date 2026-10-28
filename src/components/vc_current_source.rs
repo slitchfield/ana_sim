@@ -34,6 +34,19 @@ impl VCCurrentSource {
 }
 
 impl DCComponent for VCCurrentSource {
+    fn nodes(&self) -> Vec<u64> {
+        vec![
+            self.source_node,
+            self.sink_node,
+            self.source_sensing_node,
+            self.sink_sensing_node,
+        ]
+    }
+
+    fn num_aux_variables(&self) -> usize {
+        0
+    }
+
     fn get_gmat_stamps(&self) -> Vec<Stamp> {
         let mut retvec: Vec<Stamp> = vec![];
         if self.source_node != 0 && self.source_sensing_node != 0 {
@@ -79,7 +92,11 @@ impl DCComponent for VCCurrentSource {
         vec![]
     }
 
-    fn get_zmat_stamps(&self) -> Vec<Stamp> {
+    fn get_ivec_stamps(&self) -> Vec<Stamp> {
+        vec![]
+    }
+
+    fn get_evec_stamps(&self) -> Vec<Stamp> {
         vec![]
     }
 }
