@@ -14,7 +14,6 @@ pub struct CCCurrentSource {
 #[allow(dead_code)]
 impl CCCurrentSource {
     pub fn new(dep_source_num: u64, source_node: u64, sink_node: u64, gain: f64) -> Self {
-        // TODO: check that sensing/output nodes don't overlap illegally
         Self {
             dep_source_num,
             source_node,

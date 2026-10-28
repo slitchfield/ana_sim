@@ -16,6 +16,8 @@ pub enum NetlistError {
     UninitializedSolve,
     NonlinearSolve,
     SingularMatrix,
+    ShortedOutput { index: usize },
+    ShortedControl { index: usize },
 }
 
 #[allow(dead_code)]
@@ -54,6 +56,7 @@ impl Netlist {
     pub fn initialize_dc_mna(&mut self) -> Result<(), NetlistError> {
         self.validate_nodes()?;
         self.validate_source_numbering()?;
+        self.validate_terminals()?;
 
         // Construct A matrix
         // Dimensions must be N+MxN+M, where N is #nodes and M is #ind v sources
@@ -307,6 +310,37 @@ impl Netlist {
         Err(NetlistError::NonContiguousSourceNums { missing })
     }
 
+    fn validate_terminals(&self) -> Result<(), NetlistError> {
+        // Sensing and output nodes may legally overlap (e.g. a VCCS sensing its own output acts
+        // as a conductance), but a shorted output or control pair is always a mistake
+        for (index, component) in self.component_list.iter().enumerate() {
+            match component {
+                Component::Resistor(_)
+                | Component::IVoltageSource(_)
+                | Component::ICurrentSource(_) => {}
+                Component::VCCurrentSource(depsrc) => {
+                    if depsrc.source_node == depsrc.sink_node {
+                        return Err(NetlistError::ShortedOutput { index });
+                    }
+                    if depsrc.source_sensing_node == depsrc.sink_sensing_node {
+                        return Err(NetlistError::ShortedControl { index });
+                    }
+                }
+                Component::CCCurrentSource(depsrc) => {
+                    if depsrc.source_node == depsrc.sink_node {
+                        return Err(NetlistError::ShortedOutput { index });
+                    }
+                }
+                Component::CCVoltageSource(depsrc) => {
+                    if depsrc.positive_node == depsrc.negative_node {
+                        return Err(NetlistError::ShortedOutput { index });
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub fn num_aux_variables(&self) -> usize {
         let mut num_aux_variables = 0usize;
         for component in &self.component_list {
@@ -370,6 +404,7 @@ mod tests {
     use crate::components::independent_current_source;
     use crate::components::independent_voltage_source;
     use crate::components::resistor;
+    use crate::components::vc_current_source;
     use crate::components::Component;
     use assert_float_eq::*;
     use std::sync::Arc;
@@ -838,5 +873,96 @@ mod tests {
         net.initialize_dc_mna().unwrap();
 
         assert_eq!(net.solve_dc_mna(), Err(NetlistError::SingularMatrix));
+    }
+
+    #[test]
+    fn validate_terminals_rejects_shorted_vccs_output() {
+        let mut net = Netlist::new();
+
+        net.add_component(Component::Resistor(resistor::Resistor::new(1, 0, 1.0)));
+        net.add_component(Component::Resistor(resistor::Resistor::new(2, 0, 1.0)));
+        net.add_component(Component::VCCurrentSource(
+            vc_current_source::VCCurrentSource::new(1, 0, 2, 2, 1.0),
+        ));
+
+        assert_eq!(
+            net.initialize_dc_mna(),
+            Err(NetlistError::ShortedOutput { index: 2 })
+        );
+        assert!(!net.initialized);
+    }
+
+    #[test]
+    fn validate_terminals_rejects_shorted_vccs_control() {
+        let mut net = Netlist::new();
+
+        net.add_component(Component::Resistor(resistor::Resistor::new(1, 0, 1.0)));
+        net.add_component(Component::Resistor(resistor::Resistor::new(2, 0, 1.0)));
+        net.add_component(Component::VCCurrentSource(
+            vc_current_source::VCCurrentSource::new(1, 1, 2, 0, 1.0),
+        ));
+
+        assert_eq!(
+            net.initialize_dc_mna(),
+            Err(NetlistError::ShortedControl { index: 2 })
+        );
+    }
+
+    #[test]
+    fn validate_terminals_rejects_shorted_cccs_output() {
+        let mut net = Netlist::new();
+
+        let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 1.0);
+        let r1 = resistor::Resistor::new(1, 0, 1.0);
+        let cccs = cc_current_source::CCCurrentSource::new(1, 1, 1, 1.0);
+
+        net.add_component(Component::IVoltageSource(v1));
+        net.add_component(Component::Resistor(r1));
+        net.add_component(Component::CCCurrentSource(cccs));
+
+        assert_eq!(
+            net.initialize_dc_mna(),
+            Err(NetlistError::ShortedOutput { index: 2 })
+        );
+    }
+
+    #[test]
+    fn validate_terminals_rejects_shorted_ccvs_output() {
+        let mut net = Netlist::new();
+
+        let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 1.0);
+        let r1 = resistor::Resistor::new(1, 2, 1.0);
+        let r2 = resistor::Resistor::new(2, 0, 1.0);
+        let ccvs = cc_voltage_source::CCVoltageSource::new(2, 1, 0, 0, 2, 2, 1.0);
+
+        net.add_component(Component::IVoltageSource(v1));
+        net.add_component(Component::Resistor(r1));
+        net.add_component(Component::Resistor(r2));
+        net.add_component(Component::CCVoltageSource(ccvs));
+
+        assert_eq!(
+            net.initialize_dc_mna(),
+            Err(NetlistError::ShortedOutput { index: 3 })
+        );
+    }
+
+    #[test]
+    fn validate_terminals_accepts_vccs_sensing_own_output() {
+        // A VCCS sensing its own output nodes behaves as a 0.5 ohm conductance: V1 = 1A / 2S
+        let mut net = Netlist::new();
+
+        let i1 = independent_current_source::ICurrentSource::new(0, 1, 1.0);
+        let vccs = vc_current_source::VCCurrentSource::new(1, 0, 1, 0, 2.0);
+
+        net.add_component(Component::ICurrentSource(i1));
+        net.add_component(Component::VCCurrentSource(vccs));
+
+        net.initialize_dc_mna().unwrap();
+        net.solve_dc_mna().unwrap();
+
+        let node_voltages = net
+            .get_node_voltages()
+            .expect("voltages should be valid here");
+        assert_float_relative_eq!(node_voltages[(0, 0)], 0.5f64);
     }
 }

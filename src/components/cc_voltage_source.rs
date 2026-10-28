@@ -24,7 +24,6 @@ impl CCVoltageSource {
         negative_node: u64, //sink_node: u64,
         gain: f64,
     ) -> Self {
-        // TODO: check that sensing/output nodes don't overlap illegally
         Self {
             source_num,
             dep_source_num,

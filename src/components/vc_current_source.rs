@@ -21,7 +21,6 @@ impl VCCurrentSource {
         sink_node: u64,
         gain: f64,
     ) -> Self {
-        // TODO: check that sensing/output nodes don't overlap illegally
         Self {
             source_sensing_node,
             sink_sensing_node,
