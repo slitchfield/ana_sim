@@ -1,8 +1,8 @@
 # Todo
 
 ## Bugs
-- [ ] Fix z-matrix stamps overwriting instead of accumulating (`=` → `+=` in `netlist.rs` z assembly); two current sources into one node currently clobber each other
-- [ ] Fix `solve_dc_mna` accumulating into `x_mat` (`+=`), which doubles results on a second solve; assign instead
+- [x] Fix z-matrix stamps overwriting instead of accumulating (`=` → `+=` in `netlist.rs` z assembly); two current sources into one node currently clobber each other
+- [x] Fix `solve_dc_mna` accumulating into `x_mat` (`+=`), which doubles results on a second solve; assign instead
 - [ ] Remove the dead local `z_mat` in `initialize_dc_mna` (never stamped, added as zeros)
 - [ ] Fix `cc_voltage_source::tests::basic_function_ungrounded`, which builds a VCCS instead of a CCVS
 
@@ -27,6 +27,6 @@
 
 ## Tests
 - [ ] Extract a helper for the Qucs example circuit duplicated across netlist tests; merge the identical, assertion-free `adding_components` and `simple_vs_resistor_test`
-- [ ] Add regression tests for the z-stamp accumulation and double-solve bugs
+- [x] Add regression tests for the z-stamp accumulation and double-solve bugs
 - [ ] Add an ungrounded CCCS test
 - [ ] Add tests for the correctness guards above

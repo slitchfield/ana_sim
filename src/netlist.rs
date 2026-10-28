@@ -151,11 +151,11 @@ impl Netlist {
         }
         for Stamp(r, c, val) in i_stamps {
             let mut cell = self.z_mat.view_mut((r - 1, c - 1), (1, 1));
-            cell[(0, 0)] = val;
+            cell[(0, 0)] += val;
         }
         for Stamp(r, c, val) in v_stamps {
             let mut cell = self.z_mat.view_mut((n + r - 1, c - 1), (1, 1));
-            cell[(0, 0)] = val;
+            cell[(0, 0)] += val;
         }
         let mut z_view_mut = self.z_mat.view_mut((0, 0), (n + m, 1));
         z_view_mut += z_mat.view_mut((0, 0), (n + m, 1));
@@ -169,8 +169,8 @@ impl Netlist {
         assert!(self.is_linear());
 
         // Dimensions must be N+MxN+M, where N is #nodes and M is #ind v sources
-        let n = self.num_nodes();
-        let m = self.num_aux_variables();
+        let _n = self.num_nodes();
+        let _m = self.num_aux_variables();
 
         eprintln!("A:\n{:.1}", self.a_mat);
         eprintln!("z:\n{:.1}", self.z_mat);
@@ -180,8 +180,7 @@ impl Netlist {
         let result = lu
             .solve(&self.z_mat)
             .expect("Could not solve LU Factorization");
-        let mut x_mat_view = self.x_mat.view_mut((0, 0), (n + m, 1));
-        x_mat_view += result;
+        self.x_mat = result;
         self.x_mat_valid = true;
     }
 
@@ -417,5 +416,128 @@ mod tests {
             .expect("voltages should be valid here");
         assert_float_relative_eq!(node_voltages.view((0, 0), (1, 1))[(0, 0)], 1.0f64);
         assert_float_relative_eq!(node_voltages.view((1, 0), (1, 1))[(0, 0)], 4.0f64);
+    }
+
+    #[test]
+    fn current_sources_into_same_node_accumulate() {
+        // 1A + 2A into node 1 through 1 ohm to ground -> 3V
+        let mut net = Netlist::new();
+
+        let i1 = independent_current_source::ICurrentSource::new(0, 1, 1.0);
+        let i2 = independent_current_source::ICurrentSource::new(0, 1, 2.0);
+        let r1 = resistor::Resistor::new(1, 0, 1.0);
+
+        net.add_component(Component::ICurrentSource(i1));
+        net.add_component(Component::ICurrentSource(i2));
+        net.add_component(Component::Resistor(r1));
+
+        net.initialize_dc_mna();
+
+        assert_float_relative_eq!(net.z_mat[(0, 0)], 3.0f64);
+
+        net.solve_dc_mna();
+
+        let node_voltages = net
+            .get_node_voltages()
+            .expect("voltages should be valid here");
+        assert_float_relative_eq!(node_voltages[(0, 0)], 3.0f64);
+    }
+
+    #[test]
+    fn opposing_current_sources_at_same_node_cancel() {
+        // 3A into node 1, 1A out of node 1, through 2 ohm to ground -> 4V
+        let mut net = Netlist::new();
+
+        let i1 = independent_current_source::ICurrentSource::new(0, 1, 3.0);
+        let i2 = independent_current_source::ICurrentSource::new(1, 0, 1.0);
+        let r1 = resistor::Resistor::new(1, 0, 2.0);
+
+        net.add_component(Component::ICurrentSource(i1));
+        net.add_component(Component::ICurrentSource(i2));
+        net.add_component(Component::Resistor(r1));
+
+        net.initialize_dc_mna();
+
+        assert_float_relative_eq!(net.z_mat[(0, 0)], 2.0f64);
+
+        net.solve_dc_mna();
+
+        let node_voltages = net
+            .get_node_voltages()
+            .expect("voltages should be valid here");
+        assert_float_relative_eq!(node_voltages[(0, 0)], 4.0f64);
+    }
+
+    #[test]
+    fn current_sources_sharing_floating_node_accumulate() {
+        // I1: 1A ground -> node 1, I2: 2A node 1 -> node 2, 1 ohm from each node to ground.
+        // Net injection: node 1 = 1 - 2 = -1A -> -1V, node 2 = 2A -> 2V
+        let mut net = Netlist::new();
+
+        let i1 = independent_current_source::ICurrentSource::new(0, 1, 1.0);
+        let i2 = independent_current_source::ICurrentSource::new(1, 2, 2.0);
+        let r1 = resistor::Resistor::new(1, 0, 1.0);
+        let r2 = resistor::Resistor::new(2, 0, 1.0);
+
+        net.add_component(Component::ICurrentSource(i1));
+        net.add_component(Component::ICurrentSource(i2));
+        net.add_component(Component::Resistor(r1));
+        net.add_component(Component::Resistor(r2));
+
+        net.initialize_dc_mna();
+
+        net.solve_dc_mna();
+
+        let node_voltages = net
+            .get_node_voltages()
+            .expect("voltages should be valid here");
+        assert_float_relative_eq!(node_voltages[(0, 0)], -1.0f64);
+        assert_float_relative_eq!(node_voltages[(1, 0)], 2.0f64);
+    }
+
+    #[test]
+    fn reinitialize_does_not_accumulate_z() {
+        let mut net = Netlist::new();
+
+        let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 1.0);
+        let r1 = resistor::Resistor::new(1, 2, 5.0);
+        let r2 = resistor::Resistor::new(0, 2, 10.0);
+        let i1 = independent_current_source::ICurrentSource::new(0, 2, 1.0);
+
+        net.add_component(Component::IVoltageSource(v1));
+        net.add_component(Component::Resistor(r1));
+        net.add_component(Component::Resistor(r2));
+        net.add_component(Component::ICurrentSource(i1));
+
+        net.initialize_dc_mna();
+        net.initialize_dc_mna();
+
+        assert_float_relative_eq!(net.z_mat[(0, 0)], 0.0f64);
+        assert_float_relative_eq!(net.z_mat[(1, 0)], 1.0f64);
+        assert_float_relative_eq!(net.z_mat[(2, 0)], 1.0f64);
+    }
+
+    #[test]
+    fn repeated_solve_does_not_accumulate_x() {
+        let mut net = Netlist::new();
+
+        let v1 = independent_voltage_source::IVoltageSource::new(1, 1, 0, 1.0);
+        let r1 = resistor::Resistor::new(1, 2, 5.0);
+        let r2 = resistor::Resistor::new(0, 2, 10.0);
+        let i1 = independent_current_source::ICurrentSource::new(0, 2, 1.0);
+
+        net.add_component(Component::IVoltageSource(v1));
+        net.add_component(Component::Resistor(r1));
+        net.add_component(Component::Resistor(r2));
+        net.add_component(Component::ICurrentSource(i1));
+
+        net.initialize_dc_mna();
+
+        net.solve_dc_mna();
+        net.solve_dc_mna();
+
+        assert_float_relative_eq!(net.x_mat[(0, 0)], 1.0f64);
+        assert_float_relative_eq!(net.x_mat[(1, 0)], 4.0f64);
+        assert_float_relative_eq!(net.x_mat[(2, 0)], 0.6f64);
     }
 }
